@@ -1,0 +1,771 @@
+---
+title: "Supplement 2: Case Study — Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study"
+author: "Sack, Daniel E, Shepherd, Bryan E, Audet, Carolyn M, De Schact, Caroline, Samuels, Lauren R"
+date: "<small>Updated `r Sys.Date()` for American Journal of Epidemiology</small>"
+output:
+  pdf_document: default
+description: "Ordinal Propsensity Score Analysis"
+bibliography: references.bib
+csl: american-journal-of-epidemiology.csl
+---
+
+# Setup
+
+```{r setup, results=FALSE}
+# full code available at https://github.com/dannysack/gen_prop_wts
+
+source("../Code/orm.wt.R") # loads tidyverse, rms, and mice libraries
+library(WeightIt)
+library(MatchThem)
+library(cobalt)
+library(lme4)
+library(kableExtra)
+library(ggpubr)
+library(parallel)
+library(foreach)
+library(doParallel)
+library(extrafont)
+library(ggdist)
+library(table1)
+library(gridExtra)
+library(gtable)
+library(grid)
+library(broom.mixed)
+library(forestplot)
+library(DiagrammeR)
+library(DiagrammeRsvg)
+library(rsvg)
+library(ggeffects)
+loadfonts()
+knitrSet(lang='markdown', fig.path='png2_pdf/', fig.align='center', w=9, h=8, cache=TRUE)
+options(knitr.kable.NA = '')
+
+# set seed
+set.seed(1111)
+
+# set theme for plots
+theme <- theme_pubr() +
+  theme(legend.position = "bottom",
+               legend.key = element_rect(fill = NA, color = NA),
+               text = element_text(family = "Arial"), 
+               axis.line = element_line(), 
+               axis.text = element_text(family = "Arial", color = "black"),
+               strip.background = element_rect(fill = "grey95"))
+```
+
+# Load Data
+
+```{r load}
+# start by loading hops+ data
+# load cleaned data
+load("/Users/sackd/Library/CloudStorage/Box-Box/Vanderbilt University/PhD/Dissertation/Thesis/Analysis/Data/quant.rda")
+
+# start by removing variables not relevant to the imputations or analyses
+data <- quant %>%
+  select(district.female, age.female, day.female, group.female, clinic.female, 
+         rel_stat.female, edu_cat.female, job_cat.female,
+         stigma_com.female:peer_prop.female, who_stage, who_stage.male,
+         district.male, age.male, day.male, group.male, rel_stat.male, edu_cat.male, 
+         job_cat.male, stigma_com.male:peer_prop.male, fem_int_tot:m_prop_int,
+         time_to_fp, FP_method_final, Y_lc:covid_sens) %>%
+  mutate(clinic.female = as.numeric(clinic.female)) %>% # required for imputations
+  arrange(clinic.female) %>%
+  mutate(who_stage = factor(who_stage, levels = c("I", "II", "III", "IV")),
+         who_stage.male = factor(who_stage.male, levels = c("I", "II", "III", "IV"))) %>%
+  filter(group.female == "Intervention") %>% # only want folks in the intervention group
+  filter(!is.na(Y_raw)) %>% # only want folks with complete outcome data
+  select(district.female:phq9.female, skills_comp.female, peer_comp.female,
+         who_stage:phq9.male, skills_comp.male, peer_comp.male, 
+         FP_method_final, Y_raw) %>% # remove excess columns 
+  mutate(exp.female = skills_comp.female + peer_comp.female,
+         exp.male = skills_comp.male + peer_comp.male)
+```
+
+# Describe Data
+
+Given that the intervention consisted of six couples counseling and skills sessions focused on building communication skills, nine peer support sessions (with peer couples) focused on navigating pregnancy and the postpartum period, and joint couples antenatal and postnatal HIV care, we were interested whether intervention adherence (among female and male participants separately) impacted a secondary outcome (postpartum contraceptive uptake) among female participants in the intervention arm [@audet2018].
+
+## Supplemental Figure 2.1 - Enrollment Flow Chart
+
+```{r fig1, fig.width=8, fig.height=8}
+# create study flow chart
+
+# set font
+par(family = "Arial")
+
+flow <- grViz("digraph flowchart {
+      # main nodes
+      node [fontname = Arial, shape = rectangle, penwidth = 1.5, fontsize = 14]        
+      consented [label = 'Couples Consented & Enrolled in HoPS+ Trial (n = 1,079)']
+      enrolled [label = 'Eligible Partners (n = 1,073)']
+      intclin [label = 'Enrolled at intervention clinics (n = 524)']
+      finint [label = 'Included at intervention clinics (n = 315)']
+      females [label= 'Female Participants (n = 315)']
+      males [label = 'Male Participants (n = 315)']
+      
+      # exclusion nodes (smaller fontsize)
+      node [fontname = Arial, shape = rectangle, penwidth = 1.5, fontsize = 12] 
+      excall [label = 'One or both partners withdrew from the study (n = 6)']
+      exccont [label = 'Enrolled at control clinics (n = 549)']
+      excint [label = 'Ineligible Participants* (n = 209)\\n
+        Stillbirth or Miscarriage (n = 38)
+        Insufficient Follow Up** (n = 33)
+        Missing Eligibility Criteria (n = 39)
+        Missing Outcome Data (n = 100)']
+      
+      # dummy nodes
+      node [shape=none, width=0, height=0, label='']
+      n1
+      n2
+      n3
+
+      # edge definitions with the node IDs
+      n1 -> excall
+      n2 -> exccont
+      n1 -> enrolled
+      n2 -> intclin
+      n3 -> excint
+      n3 -> finint
+      finint -> females
+      finint -> males
+      {rank = same; n1 -> excall}
+      {rank = same; n2 -> exccont}
+      {rank = same; n3 -> excint}
+      {rank = same; females; males}
+      
+      edge[dir = none]
+      consented -> n1
+      enrolled -> n2
+      intclin -> n3
+      }
+      ")
+
+flow
+# export
+# flow %>% 
+#   export_svg() %>%
+#   charToRaw() %>%
+#   rsvg_pdf("fig1.pdf")
+# # embed fonts
+# embedFonts("fig1.pdf", fontpaths = "/Library/Fonts/Microsoft/Arial.ttf")
+
+# * indicates that individuals could share more than one reason
+# **Delivery less than 1 year before Nov. 30, 2021
+```
+
+\*indicates that individuals could share more than one reason
+
+\*\*Delivery less than 1 year before Nov. 30, 2021
+
+# Supplemental Figure 2.2 - Directed Acyclic Graph
+
+To calculate each type of sIPW, we adjusted for the available minimally sufficient set of available confounding variables. These included: participant depression (continuous, measured via the Patient Health Questionaire-9)[@kroenke2001], female and male education (no education, some primary, completed primary, some secondary, completed secondary, college/higher education), participant WHO clinical stage (ordinal), participant social support (continuous, measured via adapted Berlin Social Support Scales)[@schulz2003], partner HoPS+ engagement (continuous), participant age (continuous), and participant enrollment date (continuous). As this is merely a proof-of-concept analysis, we recognize that we are likely missing other potentially important confounders such as participant fertility intentions (which is part of the minimally sufficient set of theorized covariates), which were not available at the time of this analysis. The directed acyclic graph is shown below.
+
+```{r dag}
+knitr::include_graphics("dag.pdf")
+```
+
+## Table 3 - HoPS+ Descriptive Data
+
+```{r table1, eval = FALSE}
+# code to generate table 1
+
+# first split and combine female datasets
+fem <- data %>% select(ends_with(".female"), who_stage, FP_method_final, Y_raw) %>% 
+  mutate(sex = "Female")
+male <- data %>% select(ends_with(".male")) %>% mutate(sex = "Male")
+
+# remove suffix
+names(fem) <- gsub(".female", "", names(fem))
+names(male) <- gsub(".male", "", names(male))
+
+# now rowbind
+tab1 <- bind_rows(fem, male) %>%
+  mutate(sex = factor(sex, levels = c("Female", "Male")),
+         skills_fac = factor(skills_comp),
+         peer_fac = factor(peer_comp),
+         exp_fac = factor(exp),
+         fp_use = factor(Y_raw, labels = c("No", "Yes")))
+
+# add some labels
+label(tab1$exp) <- "Total Sessions Attended"
+label(tab1$district) <- "District"
+label(tab1$rel_stat) <- "Relationship Status"
+label(tab1$edu_cat) <- "Education"
+label(tab1$job_cat) <- "Occupation"
+label(tab1$who_stage) <- "World Health Organization HIV Stage"
+label(tab1$skills_fac) <- ""
+label(tab1$peer_fac) <- ""
+label(tab1$exp_fac) <- ""
+label(tab1$fp_use) <- "Postpartum Contraceptive Use"
+label(tab1$FP_method_final) <- "Method Type"
+
+# table 1
+table1(~ age + district + rel_stat + 
+         edu_cat + job_cat + 
+         stigma_com + stigma_pt + 
+         trust + cog_emp + aff_emp +
+         soc_sup_ps + soc_sup_ns + # still need to add in clinical data (ART status, clinical stage, BMI, and outcome data)
+         hivk + phq9 + who_stage +
+         skills_comp + skills_fac + 
+         peer_comp +peer_fac + 
+         exp + exp_fac +  fp_use +
+         FP_method_final | sex, data = tab1, 
+       render.continuous = c(.="Median [Q1, Q3]"), overall = FALSE)
+
+# final data (do not need method type in imputation since all missing for males)
+data <- data %>% select(-FP_method_final)
+```
+
+Table 1 describes baseline covariates among female and male HoPS+ participants. Female participants were younger (median age 23 years, interquartile range [IQR] 19.5, 27 years) than males (median age 27 years, IQR 24, 32 years) and less likely to have received any education (15.9% versus 6.0%). Female participants were far more likely to work as a domestic worker (50.2% versus 16.2% of male participants) and less likely to work as a trader or fisherman (0.6% and 0% versus 13.7% and 19% among males respectively). Psychometric scale scores were similar in female and male participants. 
+
+## Figure 4 - HoPS+ Exposure Distribution
+
+```{r fig2, fig.width=6, fig.height=4, eval = FALSE}
+# code to generate figure 4
+
+fem_exp <- ggplot(data, aes(x = exp.female)) +
+  geom_histogram(aes(y = ..density..),binwidth = 1, alpha = 0.5, color = "grey50") +
+  geom_density(adjust = 2) +
+  ylab("Density") +
+  xlab("Female Session Attendance") +
+  theme
+
+m_exp <- ggplot(data, aes(x = exp.male)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1, alpha = 0.5, color = "grey50") +
+  geom_density(adjust = 2) +
+  ylab("Density") +
+  xlab("Male Session Attendance") +
+  theme
+
+ggarrange(fem_exp, m_exp,
+          labels = c("A)", "B)"))
+
+# save plot
+ggsave("figs/fig4.pdf", width = 6, height = 4)
+# embed the font
+embed_fonts("figs/fig4.pdf")
+```
+
+# Imputations
+
+```{r imp, eval = FALSE, fig.width=10, fig.height=10}
+# create predictor matrix
+predmat <- make.predictorMatrix(data)
+
+# now edit predictor matrix, from "mice" documentation
+# "Each row corresponds to a variable block, i.e., a set of variables to be imputed. 
+# A value of 1 means that the column variable is used as a predictor for 
+  # the target block (in the rows)."
+# my understanding is that the column then denotes whether that variable 
+  #will be used to predict the row variable
+
+# first make clinic the cluster variable for all predictions (except it's own)
+# only need to do it in the column because it is not missing in the rows
+predmat[, "clinic.female"] <- -2
+predmat["clinic.female", "clinic.female"] <- 0
+
+# 25 imputations
+# update default for binary variables (outcome) to account for clustering in "defaultMethod"
+imp <- mice(data, m = 25,
+                predictorMatrix = predmat,
+                defaultMethod = c("pmm", "2l.bin", "polyreg", "polr"), 
+                seed = 1111)
+
+# now save for future analyses
+Save(imp)
+
+# now check some diagnostics
+# stripplots to check distributions of imputed data
+stripplot(imp)
+
+# bwplots to re-check distributions of imputed data
+bwplot(imp)
+```
+
+# Supplemental Figure 2.3 - Covariate Balance
+
+```{r covbal, fig.width=15, fig.height=10}
+# pull in imputations
+Load(imp)
+
+# first need to make clinic.female a factor in all iterations
+long <- complete(imp, action = "long", include = TRUE)
+long$clinic.female <- factor(long$clinic.female)
+# now make it back into a mids object
+imp <- as.mids(long)
+
+# create model formula to assess female and male participation per DAG
+f_form <- formula(exp.female ~ skills_comp.male + peer_comp.male + 
+                    rcs(age.female, 4) + who_stage + edu_cat.female + 
+                    edu_cat.male + rcs(day.female, 4) + rcs(phq9.female, 4) + 
+                    clinic.female + rcs(soc_sup_ps.female, 4) + rcs(soc_sup_ns.female, 4))
+m_form <- formula(exp.male ~ skills_comp.female + peer_comp.female + 
+                    rcs(age.male, 4) + who_stage.male + edu_cat.female + 
+                    edu_cat.male + rcs(day.male, 4) + rcs(phq9.male, 4) + 
+                    clinic.female +  rcs(soc_sup_ps.male, 4) + rcs(soc_sup_ns.male, 4))
+
+
+# Now assess weights across imputations
+f_w_ols <- weightthem(f_form, datasets = imp, approach = "within", method = "ps")
+f_w_cbps <- weightthem(f_form, datasets = imp, approach = "within", method = "cbps", 
+                       over = FALSE)
+m_w_ols <- weightthem(m_form, datasets = imp, approach = "within", method = "ps")
+m_w_cbps <- weightthem(m_form, datasets = imp, approach = "within", method = "cbps", 
+                       over = FALSE)
+
+# create olr weights from my own function
+f_w_olr <- orm.wt(object = imp, 
+                  exposure = "exp.female",
+                  cov_form = "~ skills_comp.male + peer_comp.male + rcs(age.female, 4) + 
+                  who_stage + edu_cat.female + edu_cat.male + rcs(day.female, 4) + 
+                  rcs(phq9.female, 4) + clinic.female +
+                  rcs(soc_sup_ps.female, 4) + rcs(soc_sup_ns.female, 4)")
+m_w_olr <- orm.wt(object = imp, 
+                  exposure = "exp.male",
+                  cov_form = "~ skills_comp.female + peer_comp.female + rcs(age.male, 4) + 
+                  who_stage.male + edu_cat.female + edu_cat.male + rcs(day.male, 4) + 
+                  rcs(phq9.male, 4) + clinic.female + 
+                  rcs(soc_sup_ps.male, 4) + rcs(soc_sup_ns.male, 4)")
+
+# Make female and male plot side by side
+# make theme for tables
+tt_theme <- ttheme_minimal(base_family = "Arial",
+                           base_size = 10,
+                           core = list(fg_params = list(hjust = 0, x = 0.1)),
+                           colhead = list(fg_params = list(hjust = 0, x = 0.1)))
+
+# female
+# first make table
+fem_bal_tab <- bal.tab(f_form, data = imp, 
+        weights = list(OLS = get.w(f_w_ols),
+                       CBGPS = get.w(f_w_cbps),
+                       OLR = unname(unlist(f_w_olr))), 
+        stats = c("c"), 
+        un = TRUE, thresholds = c(cor = .1))
+
+# get effective sample size
+bal_fem_obs <- tibble(All = rep(NA, 25),
+                      OLS = rep(NA, 25),
+                      CBGPS = rep(NA, 25),
+                      OLR = rep(NA, 25))
+for(i in 1:25) {
+    bal_fem_obs[i, ] <- t(fem_bal_tab$Imputation.Balance[[i]]$Observations)
+}
+
+# get list of mean number of balanced covariates
+bal_fem_cor <- tibble(OLS = rep(NA, 25),
+                      CBGPS = rep(NA, 25),
+                      OLR = rep(NA, 25))
+for(i in 1:25) {
+    bal_fem_cor[i, ] <- fem_bal_tab$Imputation.Balance[[i]]$Balanced.correlations[2, ]
+}
+
+# create bal_fem table for plot
+bal_fem <- tibble(Sample = c("Unadjusted",
+                             "OLS",
+                             "CBGPS",
+                             "OLR"),
+                  `Correlation > 0.1` = c("",
+                                          paste0(mean(bal_fem_cor$OLS), " (",
+                                                 min(bal_fem_cor$OLS), ", ",
+                                                 max(bal_fem_cor$OLS), ")"),
+                                          paste0(mean(bal_fem_cor$CBGPS), " (",
+                                                 min(bal_fem_cor$CBGPS), ", ",
+                                                 max(bal_fem_cor$CBGPS), ")"),
+                                          paste0(mean(bal_fem_cor$OLR), " (",
+                                                 min(bal_fem_cor$OLR), ", ",
+                                                 max(bal_fem_cor$OLR), ")")),
+                  `sIPW Distribution` = c("",
+                                          paste0(round(mean(get.w(f_w_ols)), 2), " (",
+                                                 round(min(get.w(f_w_ols)), 2), ", ",
+                                                 round(max(get.w(f_w_ols)), 2), ")"),
+                                          paste0(round(mean(get.w(f_w_cbps)), 2), " (",
+                                                 round(min(get.w(f_w_cbps)), 2), ", ",
+                                                 round(max(get.w(f_w_cbps)), 2), ")"),
+                                          paste0(round(mean(unlist(f_w_olr)), 2), " (",
+                                                 round(min(unlist(f_w_olr)), 2), ", ",
+                                                 round(max(unlist(f_w_olr)), 2), ")")))
+
+# make into grob
+fem_tab <- tableGrob(bal_fem, theme = tt_theme, rows = NULL)
+fem_tab <- gtable_add_grob(fem_tab,
+                           grobs = rectGrob(gp = gpar(fill= NA, lwd = 2)),
+                           t = 1, b = nrow(fem_tab), l = 1, r = ncol(fem_tab))
+
+# now make plot
+fem_love <- love.plot(f_form, data = imp, 
+        weights = list(OLS = get.w(f_w_ols),
+                       CBGPS = get.w(f_w_cbps),
+                       OLR = unname(unlist(f_w_olr))),
+          stats = c("c"), thresholds = c(cor = .1), 
+          abs = TRUE, line = TRUE) +
+  annotation_custom(fem_tab,
+                    xmin = 0.18, ymin = 2, ymax = 8) +
+  labs(title = "A. Female Intervention Participation",
+       subtitle = "Covariate balance across imputations") +
+  theme(text = element_text(family = "Arial"),
+        plot.title = element_text(hjust = 0),
+        plot.subtitle = element_text(hjust = 0))
+
+# male
+# first make table
+m_bal_tab <- bal.tab(m_form, data = imp, 
+        weights = list(OLS = get.w(m_w_ols),
+                       CBGPS = get.w(m_w_cbps),
+                       OLR = unname(unlist(m_w_olr))), 
+        stats = c("c"), 
+        un = TRUE, thresholds = c(cor = .1))
+
+# get effective sample size
+bal_m_obs <- tibble(All = rep(NA, 25),
+                      OLS = rep(NA, 25),
+                      CBGPS = rep(NA, 25),
+                      OLR = rep(NA, 25))
+for(i in 1:25) {
+    bal_m_obs[i, ] <- t(m_bal_tab$Imputation.Balance[[i]]$Observations)
+}
+
+# get list of mean number of balanced covariates
+bal_m_cor <- tibble(OLS = rep(NA, 25),
+                      CBGPS = rep(NA, 25),
+                      OLR = rep(NA, 25))
+for(i in 1:25) {
+    bal_m_cor[i, ] <- m_bal_tab$Imputation.Balance[[i]]$Balanced.correlations[2, ]
+}
+
+# create bal_fem table for plot
+bal_male <- tibble(Sample = c("Unadjusted",
+                             "OLS",
+                             "CBGPS",
+                             "OLR"),
+                  `Correlation > 0.1` = c("",
+                                          paste0(mean(bal_m_cor$OLS), " (",
+                                                 min(bal_m_cor$OLS), ", ",
+                                                 max(bal_m_cor$OLS), ")"),
+                                          paste0(mean(bal_m_cor$CBGPS), " (",
+                                                 min(bal_m_cor$CBGPS), ", ",
+                                                 max(bal_m_cor$CBGPS), ")"),
+                                          paste0(mean(bal_m_cor$OLR), " (",
+                                                 min(bal_m_cor$OLR), ", ",
+                                                 max(bal_m_cor$OLR), ")")),
+                  `sIPW Distribution` = c("",
+                                          paste0(round(mean(get.w(m_w_ols)), 2), " (",
+                                                 round(min(get.w(m_w_ols)), 2), ", ",
+                                                 round(max(get.w(m_w_ols)), 2), ")"),
+                                          paste0(round(mean(get.w(m_w_cbps)), 2), " (",
+                                                 round(min(get.w(m_w_cbps)), 2), ", ",
+                                                 round(max(get.w(m_w_cbps)), 2), ")"),
+                                          paste0(round(mean(unlist(m_w_olr)), 2), " (",
+                                                 round(min(unlist(m_w_olr)), 2), ", ",
+                                                 round(max(unlist(m_w_olr)), 2), ")")))
+
+# make into grob
+male_tab <- tableGrob(bal_male, theme = tt_theme, rows = NULL)
+male_tab <- gtable_add_grob(male_tab,
+                           grobs = rectGrob(gp = gpar(fill= NA, lwd = 2)),
+                           t = 1, b = nrow(male_tab), l = 1, r = ncol(male_tab))
+
+# now make plot
+male_love <- love.plot(m_form, data = imp, 
+        weights = list(OLS = get.w(m_w_ols),
+                       CBGPS = get.w(m_w_cbps),
+                       OLR = unname(unlist(m_w_olr))),
+          stats = c("c"), thresholds = c(cor = .1), 
+          abs = TRUE, line = TRUE) +
+  annotation_custom(male_tab,
+                    xmin = 0.15, ymin = 2, ymax = 8) +
+  labs(title = "B. Male Intervention Participation",
+       subtitle = "Covariate balance across imputations") +
+  theme(text = element_text(family = "Arial"),
+        axis.text.y = element_blank(),
+        plot.title = element_text(hjust = 0),
+        plot.subtitle = element_text(hjust = 0))
+# combine
+ggarrange(fem_love, male_love, nrow = 1,
+          widths = c(1, 0.6),
+          common.legend = TRUE,
+          legend = "bottom")
+```
+
+All tables are mean (min, max). The points represent the mean absolute treatment-covariate correlation across the 25 imputed datasets and the error bars show the range of correlations across datasets.
+
+# Model Fitting
+
+```{r fem_mod, warning=FALSE}
+# ols
+f_ols_mod <- with(f_w_ols,
+                  glmer(Y_raw ~ exp.female + (1 | clinic.female),
+                        family = binomial)) %>%
+  pool() %>%
+  summary()
+
+# cbgps
+f_cbgps_mod <- with(f_w_cbps,
+                  glmer(Y_raw ~ exp.female + (1 | clinic.female),
+                        family = binomial)) %>%
+  pool() %>%
+  summary()
+
+# olr
+f_olr_mod <- map2(complete(imp, "all"), f_w_olr, ~ 
+                    glmer(Y_raw ~ exp.female + (1 | clinic.female),
+                          family = binomial,
+                          data = .x,
+                          weights = .y)) %>%
+  as.mira() %>%
+  pool() %>%
+  summary()
+```
+
+```{r male_mod, warning=FALSE}
+# ols
+m_ols_mod <- with(m_w_ols,
+                  glmer(Y_raw ~ exp.male + (1 | clinic.female),
+                        family = binomial)) %>%
+  pool() %>%
+  summary()
+
+# cbgps
+m_cbgps_mod <- with(m_w_cbps,
+                  glmer(Y_raw ~ exp.male + (1 | clinic.female),
+                        family = binomial)) %>%
+  pool() %>%
+  summary()
+
+# olr
+m_olr_mod <- map2(complete(imp, "all"), m_w_olr, ~ 
+                    glmer(Y_raw ~ exp.male + (1 | clinic.female),
+                          family = binomial,
+                          data = .x,
+                          weights = .y)) %>%
+  as.mira() %>%
+  pool() %>%
+  summary()
+```
+
+# Figure 5 - Forest Plot
+
+```{r fig6, fig.width=7, fig.height=3.5, eval = FALSE}
+# female participants
+fem_fp <- tibble(Analysis = c("OLS",
+                            "CBGPS",
+                            "OLR"), 
+               coef = c(f_ols_mod$estimate[2],
+                           f_cbgps_mod$estimate[2],
+                           f_olr_mod$estimate[2]),
+                  se = c(f_ols_mod$std.error[2],
+                           f_cbgps_mod$std.error[2],
+                           f_olr_mod$std.error[2])) %>%
+  mutate(lb = coef - (1.96*se),
+         ub = coef + (1.96*se),
+         or = exp(coef),
+         or_lb = exp(lb),
+         or_ub = exp(ub),
+         `Odds Ratio (95% Confidence Interval)` = paste0(round(or, 2), " (", round(or_lb, 3), ", ", round(or_ub, 3), ")"))
+
+# male participants
+m_fp <- tibble(Analysis = c("OLS",
+                            "CBGPS",
+                            "OLR"), 
+               coef = c(m_ols_mod$estimate[2],
+                           m_cbgps_mod$estimate[2],
+                           m_olr_mod$estimate[2]),
+                  se = c(m_ols_mod$std.error[2],
+                           m_cbgps_mod$std.error[2],
+                           m_olr_mod$std.error[2])) %>%
+  mutate(lb = coef - (1.96*se),
+         ub = coef + (1.96*se),
+         or = exp(coef),
+         or_lb = exp(lb),
+         or_ub = exp(ub),
+         `Odds Ratio (95% Confidence Interval)` = paste0(round(or, 2), " (", round(or_lb, 3), ", ", round(or_ub, 3), ")"))
+
+# now make a forestplot
+tabletext <- bind_cols(c("", "Female Participants", "Mean sIPW (min, max)",
+                         "Mean correlations > 0.1 (min, max)", 
+                         "+1 session [OR (95% CI)]", 
+                         "Male Participants", "Mean sIPW (min, max)",
+                         "Mean correlations > 0.1 (min, max)", 
+                         "+1 session [OR (95% CI)]"), 
+                   c("OLS", "", 
+                     bal_fem$`sIPW Distribution`[2],
+                     bal_fem$`Correlation > 0.1`[2], 
+                     fem_fp$`Odds Ratio (95% Confidence Interval)`[1], 
+                     "", 
+                     bal_male$`sIPW Distribution`[2],
+                     bal_male$`Correlation > 0.1`[2], 
+                     m_fp$`Odds Ratio (95% Confidence Interval)`[1]),
+                   c("CBGPS", "", 
+                     bal_fem$`sIPW Distribution`[3],
+                     bal_fem$`Correlation > 0.1`[3], 
+                     fem_fp$`Odds Ratio (95% Confidence Interval)`[2], 
+                     "",  
+                     bal_male$`sIPW Distribution`[3],
+                     bal_male$`Correlation > 0.1`[3],
+                     m_fp$`Odds Ratio (95% Confidence Interval)`[2]),
+                   c("OLR", "",  
+                     bal_fem$`sIPW Distribution`[4],
+                     bal_fem$`Correlation > 0.1`[4],
+                     fem_fp$`Odds Ratio (95% Confidence Interval)`[3], 
+                     "",  
+                     bal_male$`sIPW Distribution`[4],
+                     bal_male$`Correlation > 0.1`[4],
+                     m_fp$`Odds Ratio (95% Confidence Interval)`[3]))
+pdf("figs/fig5.pdf", height = 3.5, width = 7)
+forestplot(tabletext,
+           mean = bind_cols(c(rep(NA, 4), fem_fp$or[1], rep(NA, 3), m_fp$or[1]),
+                        c(rep(NA, 4), fem_fp$or[2], rep(NA, 3), m_fp$or[2]),
+                        c(rep(NA, 4), fem_fp$or[3], rep(NA, 3), m_fp$or[3])),
+           lower = bind_cols(c(rep(NA, 4), fem_fp$or_lb[1], rep(NA, 3), m_fp$or_lb[1]),
+                         c(rep(NA, 4), fem_fp$or_lb[2], rep(NA, 3), m_fp$or_lb[2]),
+                         c(rep(NA, 4), fem_fp$or_lb[3], rep(NA, 3), m_fp$or_lb[3])),
+           upper = bind_cols(c(rep(NA, 4), fem_fp$or_ub[1], rep(NA, 3), m_fp$or_ub[1]),
+                         c(rep(NA, 4), fem_fp$or_ub[2], rep(NA, 3), m_fp$or_ub[2]),
+                         c(rep(NA, 4), fem_fp$or_ub[3], rep(NA, 3), m_fp$or_ub[3])),
+           is.summary = c(rep(TRUE, 2), rep(FALSE, 3),
+                          TRUE, rep(FALSE, 3)),
+           xlog = TRUE,
+           xlab = "Adjusted Odds Ratio",
+           boxsize = 0.15,
+           col = fpColors(box = c("#606060", "#919191", "#C4C4C4"),
+                          line = c("#606060", "#919191", "#C4C4C4")),
+           align = "l",
+           legend = c("OLS", "CBGPS", "OLR"),
+           legend_args = fpLegend(pos = list(x = 0.85, y = 0.8)),
+           vertices = TRUE,
+           vertices.height = 0.05,
+           txt_gp = fpTxtGp(cex=0.7, 
+                            label=gpar(fontfamily="Arial"), 
+                            ticks=gpar(cex=0.6),
+                            xlab=gpar(cex=0.7)))
+dev.off()
+# embed the font
+embed_fonts("figs/fig5.pdf")
+```
+
+# Figure 6 - Dose Response Plot
+
+```{r fig5, warning=FALSE, fig.width=7, fig.height=4, eval = FALSE}
+# females
+# ols
+f_ols_pp <- with(f_w_ols,
+                 glmer(Y_raw ~ exp.female + (1 | clinic.female),
+                       family = binomial))$analyses %>%
+  map(~ ggpredict(.x, terms = "exp.female")) %>%
+  pool_predictions() %>% 
+  tibble() %>% 
+  mutate(IPW = "OLS")
+
+# cbgps
+f_cbgps_pp <- with(f_w_cbps,
+                  glmer(Y_raw ~ exp.female + (1 | clinic.female),
+                        family = binomial))$analyses %>%
+  map(~ ggpredict(.x, terms = "exp.female")) %>%
+  pool_predictions() %>% 
+  tibble() %>% 
+  mutate(IPW = "CBGPS")
+
+# olr
+f_olr_pp <- map2(complete(imp, "all"), f_w_olr, ~ 
+                    glmer(Y_raw ~ exp.female + (1 | clinic.female),
+                          family = binomial,
+                          data = .x,
+                          weights = .y)) %>%
+  map(~ ggpredict(.x, terms = "exp.female")) %>%
+  pool_predictions() %>% 
+  tibble() %>% 
+  mutate(IPW = "OLR")
+
+# combine all three into one df
+fem_pp <- f_ols_pp %>%
+  bind_rows(f_cbgps_pp) %>%
+  bind_rows(f_olr_pp) %>%
+  mutate(IPW = factor(IPW, levels = c("OLS", "CBGPS", "OLR")),
+         x_new = ifelse(IPW == "OLS", x - 0.2, x),
+         x_new = ifelse(IPW == "OLR", x + 0.2, x_new))
+
+# combine into one plot
+fem_pp_plot <- ggplot(fem_pp) +
+  geom_errorbarh(aes(y = x_new, xmin = conf.low, xmax = conf.high, color = IPW), 
+                 alpha = 0.25, height = 0.25) +
+  geom_point(aes(x = predicted, y = x_new, color = IPW), size = 1) +
+  scale_color_manual(name = "", values = c("#606060", "#919191", "#C4C4C4")) +
+  scale_fill_manual(name = "", values = c("#606060", "#919191", "#C4C4C4")) +
+  ylab("Completed Sessions") +
+  xlab("Probability of Female Postpartum \nContraceptive Use") +
+  ggtitle("A) Female Participants") +
+  xlim(0, 1) +
+  theme +
+  theme(axis.text = element_text(size = 10))
+
+# males
+# ols
+m_ols_pp <- with(m_w_ols,
+                 glmer(Y_raw ~ exp.male + (1 | clinic.female),
+                       family = binomial))$analyses %>%
+  map(~ ggpredict(.x, terms = "exp.male")) %>%
+  pool_predictions() %>% 
+  tibble() %>% 
+  mutate(IPW = "OLS")
+
+# cbgps
+m_cbgps_pp <- with(m_w_cbps,
+                  glmer(Y_raw ~ exp.male + (1 | clinic.female),
+                        family = binomial))$analyses %>%
+  map(~ ggpredict(.x, terms = "exp.male")) %>%
+  pool_predictions() %>% 
+  tibble() %>% 
+  mutate(IPW = "CBGPS")
+
+# olr
+m_olr_pp <- map2(complete(imp, "all"), m_w_olr, ~ 
+                    glmer(Y_raw ~ exp.male + (1 | clinic.female),
+                          family = binomial,
+                          data = .x,
+                          weights = .y)) %>%
+  map(~ ggpredict(.x, terms = "exp.male")) %>%
+  pool_predictions() %>% 
+  tibble() %>% 
+  mutate(IPW = "OLR")
+
+# combine all three into one df
+m_pp <- m_ols_pp %>%
+  bind_rows(m_cbgps_pp) %>%
+  bind_rows(m_olr_pp) %>%
+  mutate(IPW = factor(IPW, levels = c("OLS", "CBGPS", "OLR")),
+         x_new = ifelse(IPW == "OLS", x - 0.2, x),
+         x_new = ifelse(IPW == "OLR", x + 0.2, x_new))
+
+# combine into one plot
+m_pp_plot <- ggplot(m_pp) +
+  geom_errorbarh(aes(y = x_new, xmin = conf.low, xmax = conf.high, color = IPW), 
+                 alpha = 0.25, height = 0.25) +
+  geom_point(aes(x = predicted, y = x_new, color = IPW), size = 1) +
+  scale_color_manual(name = "", values = c("#606060", "#919191", "#C4C4C4")) +
+  scale_fill_manual(name = "", values = c("#606060", "#919191", "#C4C4C4")) +
+  ylab("") +
+  xlab("Probability of Female Postpartum \nContraceptive Use") +
+  ggtitle("B) Male Participants") +
+  xlim(0, 1) +
+  theme +
+  theme(axis.text = element_text(size = 10))
+
+# combine
+ggarrange(fem_pp_plot, m_pp_plot, 
+          common.legend = TRUE,
+          legend = "bottom")
+
+# save plot
+ggsave("figs/fig6.pdf", width = 7, height = 4)
+# embed the font
+embed_fonts("figs/fig6.pdf")
+```
+
+# Session Info
+
+```{r sess_info}
+sessionInfo()
+```
+
+# References
