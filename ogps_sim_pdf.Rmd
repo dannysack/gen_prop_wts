@@ -1705,9 +1705,9 @@ austin_mse <- austin_mse %>%
                                        "x2",
                                        "x3"))) %>%
   mutate(name = factor(Exposure,
-                       labels = c(expression(paste("A) ", X[1], " - Homoscedastic, Naimi")),
-                                  expression(paste("B) ", X[2], " - Homoscedastic, Skewed")),
-                                  expression(paste("C) ", X[3], " - Heterocedastic, Naimi")))))
+                       labels = c(expression(paste("A) ", X[1], " - C: Normal; M: Normal")),
+                                  expression(paste("B) ", X[2], " - C: Normal; M: Non-Normal")),
+                                  expression(paste("C) ", X[3], " - C: Non-Normal; M: Non-Normal")))))
 
 # now create dataframe with vertical horizontal lines by facets (from MSM mse)
 # msm_mse <- tab3 %>% filter(!is.na(X1)) %>%
@@ -1729,6 +1729,21 @@ austin_mse <- austin_mse %>%
 #                                   expression(paste("B. ", X[2], " - Homoscedastic, Skewed")),
 #                                   expression(paste("C. ", X[3], " - Heterocedastic, Naimi")),
 #                                   expression(paste("D. ", X[4], " - Heterocedastic, log(Naimi + 0.001)")))))
+
+# # make reference tibble to jitter points
+# point_jitter <- tibble(Method = levels(austin_mse$Method),
+#                        Jitter = round(seq(-0.15, 0.15, 0.05), 2))
+# 
+# # add to austin_mse
+# austin_mse <- left_join(austin_mse, point_jitter, by = "Method") %>%
+#   mutate(dec = as.numeric(Decile) + Jitter,
+#          Method = factor(Method, levels = c("UW",
+#                                      "OLS",
+#                                      "CBGPS",
+#                                      "QB10",
+#                                      "QB15",
+#                                      "QB20",
+#                                      "OLR")))
   
 # now plot
 austin_mse %>%
@@ -1736,16 +1751,18 @@ austin_mse %>%
   # geom_vline(data = msm_mse, 
   #            aes(xintercept = MSE, color = Method),
   #            linetype = "longdash", alpha = 0.9) +
-  geom_point(aes(shape = Method, color = Method)) +
+  geom_point(aes(shape = Method, color = Method), size = 1) +
   facet_wrap(~name, ncol = 1, labeller = "label_parsed", scales = "free_x") +
   scale_color_grey(guide = guide_legend(nrow = 2)) +
   scale_shape_manual(values = 1:nlevels(austin_mse$Method)) +
+  #scale_y_continuous(name = "Decile", breaks = 1:9) + # if you'd like to jitter things
   theme +
   theme(panel.grid.major.y = element_line(),
         axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9),
         legend.title = element_text(size = 9),
         legend.text = element_text(size = 8),
-        strip.text = element_text(hjust = 0),
+        strip.text = element_text(hjust = 0, size = 10),
         strip.background = element_blank())
 
 # save plot
@@ -1813,9 +1830,9 @@ mse_bias_plot <- bind_rows(x1_bias, x2_bias, x3_bias) %>%
                                    "qb20_bias",
                                    "olr_bias"))) %>%
   mutate(name = factor(facet,
-                       labels = c(expression(paste("A) ", X[1], " - Homoscedastic, Naimi")),
-                                  expression(paste("B) ", X[2], " - Homoscedastic, Skewed")),
-                                  expression(paste("C) ", X[3], " - Heterocedastic, Naimi")))))
+                       labels = c(expression(paste("A) ", X[1], " - C: Normal; M: Normal")),
+                                  expression(paste("B) ", X[2], " - C: Normal; M: Non-Normal")),
+                                  expression(paste("C) ", X[3], " - C: Non-Normal; M: Non-Normal")))))
 
 # plot
 mse_bias_plot %>%
@@ -1829,9 +1846,10 @@ mse_bias_plot %>%
   theme +
   theme(panel.grid.major.y = element_line(),
         axis.text = element_text(size = 8),
+        axis.title = element_text(size = 9),
         legend.title = element_text(size = 9),
         legend.text = element_text(size = 8),
-        strip.text = element_text(hjust = 0),
+        strip.text = element_text(hjust = 0, size = 10),
         strip.background = element_blank())
   
 

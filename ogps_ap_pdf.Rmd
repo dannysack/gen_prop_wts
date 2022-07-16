@@ -544,107 +544,7 @@ m_olr_mod <- map2(complete(imp, "all"), m_w_olr, ~
   summary()
 ```
 
-# Figure 5 - Forest Plot
-
-```{r fig6, fig.width=7, fig.height=3.5, eval = FALSE}
-# female participants
-fem_fp <- tibble(Analysis = c("OLS",
-                            "CBGPS",
-                            "OLR"), 
-               coef = c(f_ols_mod$estimate[2],
-                           f_cbgps_mod$estimate[2],
-                           f_olr_mod$estimate[2]),
-                  se = c(f_ols_mod$std.error[2],
-                           f_cbgps_mod$std.error[2],
-                           f_olr_mod$std.error[2])) %>%
-  mutate(lb = coef - (1.96*se),
-         ub = coef + (1.96*se),
-         or = exp(coef),
-         or_lb = exp(lb),
-         or_ub = exp(ub),
-         `Odds Ratio (95% Confidence Interval)` = paste0(round(or, 2), " (", round(or_lb, 3), ", ", round(or_ub, 3), ")"))
-
-# male participants
-m_fp <- tibble(Analysis = c("OLS",
-                            "CBGPS",
-                            "OLR"), 
-               coef = c(m_ols_mod$estimate[2],
-                           m_cbgps_mod$estimate[2],
-                           m_olr_mod$estimate[2]),
-                  se = c(m_ols_mod$std.error[2],
-                           m_cbgps_mod$std.error[2],
-                           m_olr_mod$std.error[2])) %>%
-  mutate(lb = coef - (1.96*se),
-         ub = coef + (1.96*se),
-         or = exp(coef),
-         or_lb = exp(lb),
-         or_ub = exp(ub),
-         `Odds Ratio (95% Confidence Interval)` = paste0(round(or, 2), " (", round(or_lb, 3), ", ", round(or_ub, 3), ")"))
-
-# now make a forestplot
-tabletext <- bind_cols(c("", "Female Participants", "Mean sIPW (min, max)",
-                         "Mean correlations > 0.1 (min, max)", 
-                         "+1 session [OR (95% CI)]", 
-                         "Male Participants", "Mean sIPW (min, max)",
-                         "Mean correlations > 0.1 (min, max)", 
-                         "+1 session [OR (95% CI)]"), 
-                   c("OLS", "", 
-                     bal_fem$`sIPW Distribution`[2],
-                     bal_fem$`Correlation > 0.1`[2], 
-                     fem_fp$`Odds Ratio (95% Confidence Interval)`[1], 
-                     "", 
-                     bal_male$`sIPW Distribution`[2],
-                     bal_male$`Correlation > 0.1`[2], 
-                     m_fp$`Odds Ratio (95% Confidence Interval)`[1]),
-                   c("CBGPS", "", 
-                     bal_fem$`sIPW Distribution`[3],
-                     bal_fem$`Correlation > 0.1`[3], 
-                     fem_fp$`Odds Ratio (95% Confidence Interval)`[2], 
-                     "",  
-                     bal_male$`sIPW Distribution`[3],
-                     bal_male$`Correlation > 0.1`[3],
-                     m_fp$`Odds Ratio (95% Confidence Interval)`[2]),
-                   c("OLR", "",  
-                     bal_fem$`sIPW Distribution`[4],
-                     bal_fem$`Correlation > 0.1`[4],
-                     fem_fp$`Odds Ratio (95% Confidence Interval)`[3], 
-                     "",  
-                     bal_male$`sIPW Distribution`[4],
-                     bal_male$`Correlation > 0.1`[4],
-                     m_fp$`Odds Ratio (95% Confidence Interval)`[3]))
-pdf("figs/fig5.pdf", height = 3.5, width = 7)
-forestplot(tabletext,
-           mean = bind_cols(c(rep(NA, 4), fem_fp$or[1], rep(NA, 3), m_fp$or[1]),
-                        c(rep(NA, 4), fem_fp$or[2], rep(NA, 3), m_fp$or[2]),
-                        c(rep(NA, 4), fem_fp$or[3], rep(NA, 3), m_fp$or[3])),
-           lower = bind_cols(c(rep(NA, 4), fem_fp$or_lb[1], rep(NA, 3), m_fp$or_lb[1]),
-                         c(rep(NA, 4), fem_fp$or_lb[2], rep(NA, 3), m_fp$or_lb[2]),
-                         c(rep(NA, 4), fem_fp$or_lb[3], rep(NA, 3), m_fp$or_lb[3])),
-           upper = bind_cols(c(rep(NA, 4), fem_fp$or_ub[1], rep(NA, 3), m_fp$or_ub[1]),
-                         c(rep(NA, 4), fem_fp$or_ub[2], rep(NA, 3), m_fp$or_ub[2]),
-                         c(rep(NA, 4), fem_fp$or_ub[3], rep(NA, 3), m_fp$or_ub[3])),
-           is.summary = c(rep(TRUE, 2), rep(FALSE, 3),
-                          TRUE, rep(FALSE, 3)),
-           xlog = TRUE,
-           xlab = "Adjusted Odds Ratio",
-           boxsize = 0.15,
-           col = fpColors(box = c("#606060", "#919191", "#C4C4C4"),
-                          line = c("#606060", "#919191", "#C4C4C4")),
-           align = "l",
-           legend = c("OLS", "CBGPS", "OLR"),
-           legend_args = fpLegend(pos = list(x = 0.85, y = 0.8)),
-           vertices = TRUE,
-           vertices.height = 0.05,
-           txt_gp = fpTxtGp(cex=0.7, 
-                            label=gpar(fontfamily="Arial"), 
-                            ticks=gpar(cex=0.6),
-                            xlab=gpar(cex=0.7)))
-dev.off()
-# embed the font
-embed_fonts("figs/fig5.pdf")
-```
-
-# Figure 6 - Dose Response Plot
+# Figure 5 - Dose Response Plot
 
 ```{r fig5, warning=FALSE, fig.width=7, fig.height=4, eval = FALSE}
 # females
@@ -757,7 +657,107 @@ ggarrange(fem_pp_plot, m_pp_plot,
           legend = "bottom")
 
 # save plot
-ggsave("figs/fig6.pdf", width = 7, height = 4)
+ggsave("figs/fig5.pdf", width = 7, height = 4)
+# embed the font
+embed_fonts("figs/fig5.pdf")
+```
+
+# Figure 6 - Forest Plot
+
+```{r fig6, fig.width=7, fig.height=3.5, eval = FALSE}
+# female participants
+fem_fp <- tibble(Analysis = c("OLS",
+                            "CBGPS",
+                            "OLR"), 
+               coef = c(f_ols_mod$estimate[2],
+                           f_cbgps_mod$estimate[2],
+                           f_olr_mod$estimate[2]),
+                  se = c(f_ols_mod$std.error[2],
+                           f_cbgps_mod$std.error[2],
+                           f_olr_mod$std.error[2])) %>%
+  mutate(lb = coef - (1.96*se),
+         ub = coef + (1.96*se),
+         or = exp(coef),
+         or_lb = exp(lb),
+         or_ub = exp(ub),
+         `Odds Ratio (95% Confidence Interval)` = paste0(round(or, 2), " (", round(or_lb, 3), ", ", round(or_ub, 3), ")"))
+
+# male participants
+m_fp <- tibble(Analysis = c("OLS",
+                            "CBGPS",
+                            "OLR"), 
+               coef = c(m_ols_mod$estimate[2],
+                           m_cbgps_mod$estimate[2],
+                           m_olr_mod$estimate[2]),
+                  se = c(m_ols_mod$std.error[2],
+                           m_cbgps_mod$std.error[2],
+                           m_olr_mod$std.error[2])) %>%
+  mutate(lb = coef - (1.96*se),
+         ub = coef + (1.96*se),
+         or = exp(coef),
+         or_lb = exp(lb),
+         or_ub = exp(ub),
+         `Odds Ratio (95% Confidence Interval)` = paste0(round(or, 2), " (", round(or_lb, 3), ", ", round(or_ub, 3), ")"))
+
+# now make a forestplot
+tabletext <- bind_cols(c("", "Female Participants", "Mean sIPW (min, max)",
+                         "Mean correlations > 0.1 (min, max)", 
+                         "+1 session [OR (95% CI)]", 
+                         "Male Participants", "Mean sIPW (min, max)",
+                         "Mean correlations > 0.1 (min, max)", 
+                         "+1 session [OR (95% CI)]"), 
+                   c("OLS", "", 
+                     bal_fem$`sIPW Distribution`[2],
+                     bal_fem$`Correlation > 0.1`[2], 
+                     fem_fp$`Odds Ratio (95% Confidence Interval)`[1], 
+                     "", 
+                     bal_male$`sIPW Distribution`[2],
+                     bal_male$`Correlation > 0.1`[2], 
+                     m_fp$`Odds Ratio (95% Confidence Interval)`[1]),
+                   c("CBGPS", "", 
+                     bal_fem$`sIPW Distribution`[3],
+                     bal_fem$`Correlation > 0.1`[3], 
+                     fem_fp$`Odds Ratio (95% Confidence Interval)`[2], 
+                     "",  
+                     bal_male$`sIPW Distribution`[3],
+                     bal_male$`Correlation > 0.1`[3],
+                     m_fp$`Odds Ratio (95% Confidence Interval)`[2]),
+                   c("OLR", "",  
+                     bal_fem$`sIPW Distribution`[4],
+                     bal_fem$`Correlation > 0.1`[4],
+                     fem_fp$`Odds Ratio (95% Confidence Interval)`[3], 
+                     "",  
+                     bal_male$`sIPW Distribution`[4],
+                     bal_male$`Correlation > 0.1`[4],
+                     m_fp$`Odds Ratio (95% Confidence Interval)`[3]))
+pdf("figs/fig6.pdf", height = 3.5, width = 7)
+forestplot(tabletext,
+           mean = bind_cols(c(rep(NA, 4), fem_fp$or[1], rep(NA, 3), m_fp$or[1]),
+                        c(rep(NA, 4), fem_fp$or[2], rep(NA, 3), m_fp$or[2]),
+                        c(rep(NA, 4), fem_fp$or[3], rep(NA, 3), m_fp$or[3])),
+           lower = bind_cols(c(rep(NA, 4), fem_fp$or_lb[1], rep(NA, 3), m_fp$or_lb[1]),
+                         c(rep(NA, 4), fem_fp$or_lb[2], rep(NA, 3), m_fp$or_lb[2]),
+                         c(rep(NA, 4), fem_fp$or_lb[3], rep(NA, 3), m_fp$or_lb[3])),
+           upper = bind_cols(c(rep(NA, 4), fem_fp$or_ub[1], rep(NA, 3), m_fp$or_ub[1]),
+                         c(rep(NA, 4), fem_fp$or_ub[2], rep(NA, 3), m_fp$or_ub[2]),
+                         c(rep(NA, 4), fem_fp$or_ub[3], rep(NA, 3), m_fp$or_ub[3])),
+           is.summary = c(rep(TRUE, 2), rep(FALSE, 3),
+                          TRUE, rep(FALSE, 3)),
+           xlog = TRUE,
+           xlab = "Adjusted Odds Ratio",
+           boxsize = 0.15,
+           col = fpColors(box = c("#606060", "#919191", "#C4C4C4"),
+                          line = c("#606060", "#919191", "#C4C4C4")),
+           align = "l",
+           legend = c("OLS", "CBGPS", "OLR"),
+           legend_args = fpLegend(pos = list(x = 0.85, y = 0.8)),
+           vertices = TRUE,
+           vertices.height = 0.05,
+           txt_gp = fpTxtGp(cex=0.7, 
+                            label=gpar(fontfamily="Arial"), 
+                            ticks=gpar(cex=0.6),
+                            xlab=gpar(cex=0.7)))
+dev.off()
 # embed the font
 embed_fonts("figs/fig6.pdf")
 ```
