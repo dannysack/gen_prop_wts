@@ -685,13 +685,13 @@ Supplemental Figure 4 shows the relationships between maternal age (`mage`) or s
 # Marginal Exposure Distribution
 
 # now create plot
-homoscedasticx1 <- ggplot(df[1:1000, ], aes(x = x1)) +
+homoscedasticx1 <- ggplot(df, aes(x = x1)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
   geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[1], " (C: Normal; M: Normal)"))) +
-  labs(caption = paste0("Skew (", round(moments::skewness(df$x1), 3), 
-        "), Kurtosis (", round(moments::kurtosis(df$x1), 3), ")")) +
+  scale_x_continuous(name = expression(paste(X[1]))) +
+  # labs(caption = paste0("Skew (", round(moments::skewness(df$x1), 3), 
+  #       "), Kurtosis (", round(moments::kurtosis(df$x1), 3), ")")) +
   theme + 
   theme(text = element_text(size = 8.5))
 
@@ -699,9 +699,9 @@ heteroscedasticx2 <- ggplot(df, aes(x = x2)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
   geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[2], " (C: Normal; M: Non-Normal)"))) +
-  labs(caption = paste0("Skew (", round(moments::skewness(df$x2), 3), 
-        "), Kurtosis (", round(moments::kurtosis(df$x2), 3), ")")) +
+  scale_x_continuous(name = expression(paste(X[2]))) +
+  # labs(caption = paste0("Skew (", round(moments::skewness(df$x2), 3), 
+  #       "), Kurtosis (", round(moments::kurtosis(df$x2), 3), ")")) +
   theme + 
   theme(text = element_text(size = 8.5))
 
@@ -709,8 +709,8 @@ homoscedasticx3 <- ggplot(df, aes(x = x3)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
   geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[3], " (C: Non-Normal; M: Non-Normal)"))) +
-  labs(caption = "  ") +
+  scale_x_continuous(name = expression(paste(X[3]))) +
+  # labs(caption = "  ") +
   theme + 
   theme(text = element_text(size = 8.5))
 
@@ -1695,19 +1695,19 @@ for(i in 1:nrow(austin_mse)){
 austin_mse <- austin_mse %>%
   mutate(Decile = factor(Decile),
          Method = factor(Method, levels = c("UW",
+                                            "QB10",
                                      "OLS",
-                                     "CBGPS",
-                                     "QB10",
                                      "QB15",
+                                     "CBGPS",
                                      "QB20",
                                      "OLR")),
          Exposure = factor(Exposure, levels = c("x1",
                                        "x2",
                                        "x3"))) %>%
   mutate(name = factor(Exposure,
-                       labels = c(expression(paste("A) ", X[1], " - C: Normal; M: Normal")),
-                                  expression(paste("B) ", X[2], " - C: Normal; M: Non-Normal")),
-                                  expression(paste("C) ", X[3], " - C: Non-Normal; M: Non-Normal")))))
+                       labels = c(expression(paste("A) ", X[1])),
+                                  expression(paste("B) ", X[2])),
+                                  expression(paste("C) ", X[3])))))
 
 # now create dataframe with vertical horizontal lines by facets (from MSM mse)
 # msm_mse <- tab3 %>% filter(!is.na(X1)) %>%
@@ -1830,9 +1830,9 @@ mse_bias_plot <- bind_rows(x1_bias, x2_bias, x3_bias) %>%
                                    "qb20_bias",
                                    "olr_bias"))) %>%
   mutate(name = factor(facet,
-                       labels = c(expression(paste("A) ", X[1], " - C: Normal; M: Normal")),
-                                  expression(paste("B) ", X[2], " - C: Normal; M: Non-Normal")),
-                                  expression(paste("C) ", X[3], " - C: Non-Normal; M: Non-Normal")))))
+                       labels = c(expression(paste("A) ", X[1])),
+                                  expression(paste("B) ", X[2])),
+                                  expression(paste("C) ", X[3])))))
 
 # plot
 mse_bias_plot %>%

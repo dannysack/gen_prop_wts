@@ -225,16 +225,18 @@ Table 1 describes baseline covariates among female and male HoPS+ participants. 
 # code to generate figure 4
 
 fem_exp <- ggplot(data, aes(x = exp.female)) +
-  geom_histogram(aes(y = ..density..),binwidth = 1, alpha = 0.5, color = "grey50") +
-  geom_density(adjust = 2) +
-  ylab("Density") +
+  geom_histogram(aes(y = ..count..),binwidth = 1, alpha = 0.5, color = "grey50") +
+  # geom_density(adjust = 2) +
+  ylab("Participants") +
+  ylim(0, 90) +
   xlab("Female Session Attendance") +
   theme
 
 m_exp <- ggplot(data, aes(x = exp.male)) +
-  geom_histogram(aes(y = ..density..), binwidth = 1, alpha = 0.5, color = "grey50") +
-  geom_density(adjust = 2) +
-  ylab("Density") +
+  geom_histogram(aes(y = ..count..), binwidth = 1, alpha = 0.5, color = "grey50") +
+  # geom_density(adjust = 2) +
+  ylab("") +
+  ylim(0, 90) +
   xlab("Male Session Attendance") +
   theme
 
@@ -546,7 +548,7 @@ m_olr_mod <- map2(complete(imp, "all"), m_w_olr, ~
 
 # Figure 5 - Dose Response Plot
 
-```{r fig5, warning=FALSE, fig.width=7, fig.height=4, eval = FALSE}
+```{r fig5, warning=FALSE, fig.width=7, fig.height=5, eval = FALSE}
 # females
 # ols
 f_ols_pp <- with(f_w_ols,
@@ -589,12 +591,11 @@ fem_pp <- f_ols_pp %>%
 fem_pp_plot <- ggplot(fem_pp) +
   geom_errorbarh(aes(y = x_new, xmin = conf.low, xmax = conf.high, color = IPW), 
                  alpha = 0.25, height = 0.25) +
-  geom_point(aes(x = predicted, y = x_new, color = IPW), size = 1) +
-  scale_color_manual(name = "", values = c("#606060", "#919191", "#C4C4C4")) +
-  scale_fill_manual(name = "", values = c("#606060", "#919191", "#C4C4C4")) +
+  geom_point(aes(x = predicted, y = x_new, color = IPW, shape = IPW), size = 1) +
+  scale_color_manual(values = c("#606060", "#919191", "#C4C4C4")) +
   ylab("Completed Sessions") +
   xlab("Probability of Female Postpartum \nContraceptive Use") +
-  ggtitle("A) Female Participants") +
+  ggtitle("A) Female Attendance") +
   xlim(0, 1) +
   theme +
   theme(axis.text = element_text(size = 10))
@@ -641,12 +642,11 @@ m_pp <- m_ols_pp %>%
 m_pp_plot <- ggplot(m_pp) +
   geom_errorbarh(aes(y = x_new, xmin = conf.low, xmax = conf.high, color = IPW), 
                  alpha = 0.25, height = 0.25) +
-  geom_point(aes(x = predicted, y = x_new, color = IPW), size = 1) +
-  scale_color_manual(name = "", values = c("#606060", "#919191", "#C4C4C4")) +
-  scale_fill_manual(name = "", values = c("#606060", "#919191", "#C4C4C4")) +
+  geom_point(aes(x = predicted, y = x_new, color = IPW, shape = IPW), size = 1) +
+  scale_color_manual(values = c("#606060", "#919191", "#C4C4C4")) +
   ylab("") +
   xlab("Probability of Female Postpartum \nContraceptive Use") +
-  ggtitle("B) Male Participants") +
+  ggtitle("B) Male Attendance") +
   xlim(0, 1) +
   theme +
   theme(axis.text = element_text(size = 10))
@@ -657,7 +657,7 @@ ggarrange(fem_pp_plot, m_pp_plot,
           legend = "bottom")
 
 # save plot
-ggsave("figs/fig5.pdf", width = 7, height = 4)
+ggsave("figs/fig5.pdf", width = 7, height = 5)
 # embed the font
 embed_fonts("figs/fig5.pdf")
 ```
@@ -760,6 +760,11 @@ forestplot(tabletext,
 dev.off()
 # embed the font
 embed_fonts("figs/fig6.pdf")
+```
+
+# Table 4 - Method Characteristics and Likelihood of Female Postpartum Contraceptive Uptake
+```{r tab4, eval=FALSE}
+kable(tabletext)
 ```
 
 # Session Info
