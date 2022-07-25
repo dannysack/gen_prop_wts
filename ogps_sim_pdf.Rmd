@@ -113,7 +113,7 @@ sim_data <- function(n) {
                         log(0.75) * parity2 + log(0.8) * parity3 + log(0.85) * parity4 + log(0.9) *parity5)))^(-1))
   
   # normal exposure distribution, but marginally not normal, updated intercept from -11.5 to -11.4
-  y2 <- rbinom(n, 1, (1  + exp(-(-11.4 + log(1.25) * x2 + log(1.7) * sqrt(mage_g) + 
+  y2 <- rbinom(n, 1, (1  + exp(-(-13 + log(1.25) * x2 + log(1.7) * sqrt(mage_g) + 
                                    log(1.5) * sqrt(page) + log(0.75) * parity2 + 
                                    log(0.8) * parity3 + log(0.85) * parity4 + 
                                    log(0.9) *parity5)))^(-1))
@@ -141,8 +141,7 @@ sim_data <- function(n) {
 }
 
 # to check outcome prevalence with different intercepts
-#table1::table1(~ factor(y1) + factor(y2) + factor(y3) + factor(y4) + 
-#factor(y5) + factor(y6), data = sim_data(n = 10000))
+#table1::table1(~ factor(y1) + factor(y2) + factor(y3), data = sim_data(n = 3000000))
 ```
 
 # Simulations
@@ -901,11 +900,11 @@ tab2 <- tibble(Method = c("Ordinary least squares",
 # kable(tab2) %>%
 #   kable_classic(html_font = "Arial", full_width = FALSE) %>%
 #   add_header_above(c("", "X1" = 1, "X2" = 1, "X3" = 1), bold = TRUE) %>%
-#   add_header_above(c("Marginally", "Normal" = 1, "Non-Normal" = 1, 
+#   add_header_above(c("Marginally", "Normal" = 1, "Non-Normal" = 1,
 #                      "Non-Normal" = 1), bold = TRUE) %>%
-#   add_header_above(c("Conditionally", "Normal" = 1, "Normal" = 1, 
+#   add_header_above(c("Conditionally", "Normal" = 1, "Normal" = 1,
 #                      "Non-Normal" = 1), bold = TRUE) %>%
-#   # add_header_above(c("Expsoure Transformation", "None" = 3, 
+#   # add_header_above(c("Expsoure Transformation", "None" = 3,
 #   #                    "log(X + 0.001)" = 1), bold = TRUE) %>%
 #   add_indent(c(4:6))
 ```
@@ -1147,11 +1146,11 @@ covbal_tab <- tibble(Method = c("Unweighted",
 # kable(covbal_tab) %>%
 #   kable_classic(html_font = "Arial", full_width = FALSE) %>%
 #   add_header_above(c("", "X1" = 1, "X2" = 1, "X3" = 1), bold = TRUE) %>%
-#   add_header_above(c("Marginally", "Normal" = 1, "Non-Normal" = 1, 
+#   add_header_above(c("Marginally", "Normal" = 1, "Non-Normal" = 1,
 #                      "Non-Normal" = 1), bold = TRUE) %>%
-#   add_header_above(c("Conditionally", "Normal" = 1, "Normal" = 1, 
+#   add_header_above(c("Conditionally", "Normal" = 1, "Normal" = 1,
 #                      "Non-Normal" = 1), bold = TRUE)  %>%
-#   # add_header_above(c("Expsoure Transformation", "None" = 3, 
+#   # add_header_above(c("Expsoure Transformation", "None" = 3,
 #   #                    "log(X + 0.001)" = 1), bold = TRUE) %>%
 #   add_indent(c(5:7))
 ```
@@ -1634,8 +1633,8 @@ aus_bias_plot <- function(decile) {
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
     scale_y_discrete(name = "", labels = c("OLR", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
-    scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
-                       breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
+    scale_x_continuous(name = "Bias", limits = c(-0.15, 0.35), 
+                       breaks = seq(-0.1, 0.3, 0.1), labels = seq(-0.1, 0.3, 0.1)) +
     theme
 
   x3_bias_plot2 <- ggplot(x3_bias2, aes(y = fct_rev(label), x = bias)) +
