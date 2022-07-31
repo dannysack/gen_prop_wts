@@ -329,7 +329,7 @@ getMeanProb_MSM <- function(dat, val, xnum) {
         alpha <- -11.5   
         magevar <- "mage"
     } else if (xnum == "x2") {
-        alpha <- -11.4   
+        alpha <- -13   
         magevar <- "mage_g"
     } else if (xnum == "x3") {
         alpha <- -8.05
@@ -408,7 +408,7 @@ getMeanProb <- function(dat, val, xnum) {
         alpha <- -11.5    
         magevar <- "mage"
     } else if (xnum == 2) {
-        alpha <- -11.4    
+        alpha <- -13   
         magevar <- "mage_g"
     } else if (xnum == 3) {
         alpha <- -8.05
@@ -1633,8 +1633,8 @@ aus_bias_plot <- function(decile) {
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
     scale_y_discrete(name = "", labels = c("OLR", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
-    scale_x_continuous(name = "Bias", limits = c(-0.15, 0.35), 
-                       breaks = seq(-0.1, 0.3, 0.1), labels = seq(-0.1, 0.3, 0.1)) +
+    scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
+                       breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
     theme
 
   x3_bias_plot2 <- ggplot(x3_bias2, aes(y = fct_rev(label), x = bias)) +
