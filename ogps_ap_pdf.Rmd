@@ -402,8 +402,8 @@ fem_love <- love.plot(f_form, data = imp,
                        OLR = unname(unlist(f_w_olr))),
           stats = c("c"), thresholds = c(cor = .1), 
           abs = TRUE, line = TRUE) +
-  annotation_custom(fem_tab,
-                    xmin = 0.18, ymin = 2, ymax = 8) +
+  # annotation_custom(fem_tab,
+  #                   xmin = 0.18, ymin = 2, ymax = 8) +
   labs(title = "A. Female Intervention Participation",
        subtitle = "Covariate balance across imputations") +
   theme(text = element_text(family = "Arial"),
@@ -475,8 +475,8 @@ male_love <- love.plot(m_form, data = imp,
                        OLR = unname(unlist(m_w_olr))),
           stats = c("c"), thresholds = c(cor = .1), 
           abs = TRUE, line = TRUE) +
-  annotation_custom(male_tab,
-                    xmin = 0.15, ymin = 2, ymax = 8) +
+  # annotation_custom(male_tab,
+  #                   xmin = 0.15, ymin = 2, ymax = 8) +
   labs(title = "B. Male Intervention Participation",
        subtitle = "Covariate balance across imputations") +
   theme(text = element_text(family = "Arial"),
