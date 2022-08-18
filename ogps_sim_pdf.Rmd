@@ -146,7 +146,7 @@ sim_data <- function(n) {
 
 # Simulations
 
-Do 3000 simulations and generate weights for each simulation, combine each simulation into one long dataframe with weights and list and simulation number. Generate weights with OLS, CBGPS, QB10, QB15, QB20, and OLR.
+Do 3000 simulations and generate weights for each simulation, combine each simulation into one long dataframe with weights and list and simulation number. Generate weights with OLS, CBGPS, QB10, QB15, QB20, and CPM.
 
 For *X*~2~, we updated the intercept values (from -11.5 [*X*~1~] to -11.4 [*X*~2~]) to maintain a marginal probability of the outcome of approximately 0.08 with the updated exposure distributions.
 
@@ -929,25 +929,25 @@ covbal_func <- function(data){
   bal_tab_x1 <- bal.tab(x1_formula, data = data, 
         weights = list(OLS = "x1_ols_wts",
                        CBGPS = "x1_cbgps_wts",
-                       OLR = "x1_olr_wts"), 
+                       CPM = "x1_olr_wts"), 
         stats = c("c"), 
         un = TRUE, thresholds = c(cor = .1))
   bal_tab_x2 <- bal.tab(x2_formula, data = data, 
         weights = list(OLS = "x2_ols_wts",
                        CBGPS = "x2_cbgps_wts",
-                       OLR = "x2_olr_wts"), 
+                       CPM = "x2_olr_wts"), 
         stats = c("c"), 
         un = TRUE, thresholds = c(cor = .1))
   bal_tab_x3 <- bal.tab(x3_formula, data = data, 
         weights = list(OLS = "x3_ols_wts",
                        CBGPS = "x3_cbgps_wts",
-                       OLR = "x3_olr_wts"), 
+                       CPM = "x3_olr_wts"), 
         stats = c("c"), 
         un = TRUE, thresholds = c(cor = .1))
   bal_tab_x4 <- bal.tab(x4_formula, data = data, 
         weights = list(OLS = "x4_ols_wts",
                        CBGPS = "x4_cbgps_wts",
-                       OLR = "x4_olr_wts"), 
+                       CPM = "x4_olr_wts"), 
         stats = c("c"), 
         un = TRUE, thresholds = c(cor = .1))
   
@@ -1624,7 +1624,7 @@ aus_bias_plot <- function(decile) {
   x1_bias_plot2 <- ggplot(x1_bias2, aes(y = fct_rev(label), x = bias)) +
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
-    scale_y_discrete(name = "", labels = c("OLR", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
+    scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
     scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
                        breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
     theme
@@ -1632,7 +1632,7 @@ aus_bias_plot <- function(decile) {
   x2_bias_plot2 <- ggplot(x2_bias2, aes(y = fct_rev(label), x = bias)) +
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
-    scale_y_discrete(name = "", labels = c("OLR", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
+    scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
     scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
                        breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
     theme
@@ -1640,7 +1640,7 @@ aus_bias_plot <- function(decile) {
   x3_bias_plot2 <- ggplot(x3_bias2, aes(y = fct_rev(label), x = bias)) +
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
-    scale_y_discrete(name = "", labels = c("OLR", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
+    scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
     scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
                        breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
     theme
@@ -1673,7 +1673,7 @@ austin_mse <- expand_grid(Decile = c(1:9),
                                      "QB10",
                                      "QB15",
                                      "QB20",
-                                     "OLR"),
+                                     "CPM"),
                           Exposure = c("x1",
                                        "x2",
                                        "x3"),
@@ -1699,7 +1699,7 @@ austin_mse <- austin_mse %>%
                                      "QB15",
                                      "CBGPS",
                                      "QB20",
-                                     "OLR")),
+                                     "CPM")),
          Exposure = factor(Exposure, levels = c("x1",
                                        "x2",
                                        "x3"))) %>%
@@ -1718,7 +1718,7 @@ austin_mse <- austin_mse %>%
 #                                      "QB10",
 #                                      "QB15",
 #                                      "QB20",
-#                                      "OLR")),
+#                                      "CPM")),
 #          Exposure = factor(Exposure, levels = c("x1",
 #                                        "x2",
 #                                        "x3",
@@ -1742,7 +1742,7 @@ austin_mse <- austin_mse %>%
 #                                      "QB10",
 #                                      "QB15",
 #                                      "QB20",
-#                                      "OLR")))
+#                                      "CPM")))
   
 # now plot
 austin_mse %>%
@@ -1839,7 +1839,7 @@ mse_bias_plot %>%
   stat_halfeye() +
   geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
   facet_wrap(~name, ncol = 1, labeller = "label_parsed", scales = "free_x") +
-  scale_y_discrete(name = "", labels = c("OLR", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
+  scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
   scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
                      breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
   theme +
