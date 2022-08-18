@@ -367,7 +367,7 @@ for(i in 1:25) {
 bal_fem <- tibble(Sample = c("Unadjusted",
                              "OLS",
                              "CBGPS",
-                             "OLR"),
+                             "CPM"),
                   `Correlation > 0.1` = c("",
                                           paste0(mean(bal_fem_cor$OLS), " (",
                                                  min(bal_fem_cor$OLS), ", ",
@@ -399,7 +399,7 @@ fem_tab <- gtable_add_grob(fem_tab,
 fem_love <- love.plot(f_form, data = imp, 
         weights = list(OLS = get.w(f_w_ols),
                        CBGPS = get.w(f_w_cbps),
-                       OLR = unname(unlist(f_w_olr))),
+                       CPM = unname(unlist(f_w_olr))),
           stats = c("c"), thresholds = c(cor = .1), 
           abs = TRUE, line = TRUE) +
   # annotation_custom(fem_tab,
@@ -440,7 +440,7 @@ for(i in 1:25) {
 bal_male <- tibble(Sample = c("Unadjusted",
                              "OLS",
                              "CBGPS",
-                             "OLR"),
+                             "CPM"),
                   `Correlation > 0.1` = c("",
                                           paste0(mean(bal_m_cor$OLS), " (",
                                                  min(bal_m_cor$OLS), ", ",
@@ -472,7 +472,7 @@ male_tab <- gtable_add_grob(male_tab,
 male_love <- love.plot(m_form, data = imp, 
         weights = list(OLS = get.w(m_w_ols),
                        CBGPS = get.w(m_w_cbps),
-                       OLR = unname(unlist(m_w_olr))),
+                       CPM = unname(unlist(m_w_olr))),
           stats = c("c"), thresholds = c(cor = .1), 
           abs = TRUE, line = TRUE) +
   # annotation_custom(male_tab,
@@ -577,15 +577,15 @@ f_olr_pp <- map2(complete(imp, "all"), f_w_olr, ~
   map(~ ggpredict(.x, terms = "exp.female")) %>%
   pool_predictions() %>% 
   tibble() %>% 
-  mutate(IPW = "OLR")
+  mutate(IPW = "CPM")
 
 # combine all three into one df
 fem_pp <- f_ols_pp %>%
   bind_rows(f_cbgps_pp) %>%
   bind_rows(f_olr_pp) %>%
-  mutate(IPW = factor(IPW, levels = c("OLS", "CBGPS", "OLR")),
+  mutate(IPW = factor(IPW, levels = c("OLS", "CBGPS", "CPM")),
          x_new = ifelse(IPW == "OLS", x - 0.2, x),
-         x_new = ifelse(IPW == "OLR", x + 0.2, x_new))
+         x_new = ifelse(IPW == "CPM", x + 0.2, x_new))
 
 # combine into one plot
 fem_pp_plot <- ggplot(fem_pp) +
@@ -628,15 +628,15 @@ m_olr_pp <- map2(complete(imp, "all"), m_w_olr, ~
   map(~ ggpredict(.x, terms = "exp.male")) %>%
   pool_predictions() %>% 
   tibble() %>% 
-  mutate(IPW = "OLR")
+  mutate(IPW = "CPM")
 
 # combine all three into one df
 m_pp <- m_ols_pp %>%
   bind_rows(m_cbgps_pp) %>%
   bind_rows(m_olr_pp) %>%
-  mutate(IPW = factor(IPW, levels = c("OLS", "CBGPS", "OLR")),
+  mutate(IPW = factor(IPW, levels = c("OLS", "CBGPS", "CPM")),
          x_new = ifelse(IPW == "OLS", x - 0.2, x),
-         x_new = ifelse(IPW == "OLR", x + 0.2, x_new))
+         x_new = ifelse(IPW == "CPM", x + 0.2, x_new))
 
 # combine into one plot
 m_pp_plot <- ggplot(m_pp) +
@@ -668,7 +668,7 @@ embed_fonts("figs/fig5.pdf")
 # female participants
 fem_fp <- tibble(Analysis = c("OLS",
                             "CBGPS",
-                            "OLR"), 
+                            "CPM"), 
                coef = c(f_ols_mod$estimate[2],
                            f_cbgps_mod$estimate[2],
                            f_olr_mod$estimate[2]),
@@ -685,7 +685,7 @@ fem_fp <- tibble(Analysis = c("OLS",
 # male participants
 m_fp <- tibble(Analysis = c("OLS",
                             "CBGPS",
-                            "OLR"), 
+                            "CPM"), 
                coef = c(m_ols_mod$estimate[2],
                            m_cbgps_mod$estimate[2],
                            m_olr_mod$estimate[2]),
@@ -722,7 +722,7 @@ tabletext <- bind_cols(c("", "Female Participants", "Mean sIPW (min, max)",
                      bal_male$`sIPW Distribution`[3],
                      bal_male$`Correlation > 0.1`[3],
                      m_fp$`Odds Ratio (95% Confidence Interval)`[2]),
-                   c("OLR", "",  
+                   c("CPM", "",  
                      bal_fem$`sIPW Distribution`[4],
                      bal_fem$`Correlation > 0.1`[4],
                      fem_fp$`Odds Ratio (95% Confidence Interval)`[3], 
@@ -749,7 +749,7 @@ forestplot(tabletext,
            col = fpColors(box = c("#606060", "#919191", "#C4C4C4"),
                           line = c("#606060", "#919191", "#C4C4C4")),
            align = "l",
-           legend = c("OLS", "CBGPS", "OLR"),
+           legend = c("OLS", "CBGPS", "CPM"),
            legend_args = fpLegend(pos = list(x = 0.85, y = 0.8)),
            vertices = TRUE,
            vertices.height = 0.05,
