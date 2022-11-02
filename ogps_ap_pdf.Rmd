@@ -14,7 +14,7 @@ csl: american-journal-of-epidemiology.csl
 ```{r setup, results=FALSE}
 # full code available at https://github.com/dannysack/gen_prop_wts
 
-source("../Code/orm.wt.R") # loads tidyverse, rms, and mice libraries
+source('./orm.wt.R') # loads tidyverse, rms, and mice libraries
 library(WeightIt)
 library(MatchThem)
 library(cobalt)
@@ -36,12 +36,14 @@ library(DiagrammeR)
 library(DiagrammeRsvg)
 library(rsvg)
 library(ggeffects)
+library(future)
+library(furrr)
 loadfonts()
 knitrSet(lang='markdown', fig.path='png2_pdf/', fig.align='center', w=9, h=8, cache=TRUE)
 options(knitr.kable.NA = '')
 
-# set seed
-set.seed(1111)
+# set seed across all all streams for parallel processing
+set.seed(1111, kind = "L'Ecuyer-CMRG")
 
 # set theme for plots
 theme <- theme_pubr() +
@@ -165,7 +167,7 @@ To calculate each type of sIPW, we adjusted for the available minimally sufficie
 knitr::include_graphics("dag.pdf")
 ```
 
-## Table 3 - HoPS+ Descriptive Data
+## Table 4 - HoPS+ Descriptive Data
 
 ```{r table1, eval = FALSE}
 # code to generate table 1
@@ -203,10 +205,8 @@ label(tab1$FP_method_final) <- "Method Type"
 # table 1
 table1(~ age + district + rel_stat + 
          edu_cat + job_cat + 
-         stigma_com + stigma_pt + 
-         trust + cog_emp + aff_emp +
-         soc_sup_ps + soc_sup_ns + # still need to add in clinical data (ART status, clinical stage, BMI, and outcome data)
-         hivk + phq9 + who_stage +
+         soc_sup_ps + soc_sup_ns + 
+         phq9 + who_stage +
          skills_comp + skills_fac + 
          peer_comp +peer_fac + 
          exp + exp_fac +  fp_use +
@@ -219,7 +219,7 @@ data <- data %>% select(-FP_method_final)
 
 Table 1 describes baseline covariates among female and male HoPS+ participants. Female participants were younger (median age 23 years, interquartile range [IQR] 19.5, 27 years) than males (median age 27 years, IQR 24, 32 years) and less likely to have received any education (15.9% versus 6.0%). Female participants were far more likely to work as a domestic worker (50.2% versus 16.2% of male participants) and less likely to work as a trader or fisherman (0.6% and 0% versus 13.7% and 19% among males respectively). Psychometric scale scores were similar in female and male participants. 
 
-## Figure 4 - HoPS+ Exposure Distribution
+## Figure 3 - HoPS+ Exposure Distribution
 
 ```{r fig2, fig.width=6, fig.height=4, eval = FALSE}
 # code to generate figure 4
@@ -244,9 +244,9 @@ ggarrange(fem_exp, m_exp,
           labels = c("A)", "B)"))
 
 # save plot
-ggsave("figs/fig4.pdf", width = 6, height = 4)
+ggsave("figs/fig3.pdf", width = 6, height = 4)
 # embed the font
-embed_fonts("figs/fig4.pdf")
+embed_fonts("figs/fig3.pdf")
 ```
 
 # Imputations
@@ -287,7 +287,7 @@ bwplot(imp)
 
 # Supplemental Figure 2.3 - Covariate Balance
 
-```{r covbal, fig.width=15, fig.height=10}
+```{r covbal1}
 # pull in imputations
 Load(imp)
 
@@ -312,9 +312,13 @@ m_form <- formula(exp.male ~ skills_comp.female + peer_comp.female +
 f_w_ols <- weightthem(f_form, datasets = imp, approach = "within", method = "ps")
 f_w_cbps <- weightthem(f_form, datasets = imp, approach = "within", method = "cbps", 
                        over = FALSE)
+# f_w_npcbps <- weightthem(f_form, datasets = imp, approach = "within", method = "npcbps", 
+#                        over = FALSE)
 m_w_ols <- weightthem(m_form, datasets = imp, approach = "within", method = "ps")
 m_w_cbps <- weightthem(m_form, datasets = imp, approach = "within", method = "cbps", 
                        over = FALSE)
+# m_w_npcbps <- weightthem(m_form, datasets = imp, approach = "within", method = "npcbps", 
+#                        over = FALSE)
 
 # create olr weights from my own function
 f_w_olr <- orm.wt(object = imp, 
@@ -330,6 +334,22 @@ m_w_olr <- orm.wt(object = imp,
                   rcs(phq9.male, 4) + clinic.female + 
                   rcs(soc_sup_ps.male, 4) + rcs(soc_sup_ns.male, 4)")
 
+```
+
+```{r npcgbps_run, eval = FALSE}
+# run these seperately because they are slow
+f_w_npcbps <- weightthem(f_form, datasets = imp, approach = "within", method = "npcbps", 
+                       over = FALSE)
+Save(f_w_npcbps)
+m_w_npcbps <- weightthem(m_form, datasets = imp, approach = "within", method = "npcbps", 
+                       over = FALSE)
+Save(m_w_npcbps)
+```
+
+```{r covbal2, fig.width=15, fig.height=10}
+# load female and male npcbps
+Load(f_w_npcbps)
+Load(m_w_npcbps)
 # Make female and male plot side by side
 # make theme for tables
 tt_theme <- ttheme_minimal(base_family = "Arial",
@@ -342,6 +362,7 @@ tt_theme <- ttheme_minimal(base_family = "Arial",
 fem_bal_tab <- bal.tab(f_form, data = imp, 
         weights = list(OLS = get.w(f_w_ols),
                        CBGPS = get.w(f_w_cbps),
+                       npCBGPS = get.w(f_w_npcbps),
                        OLR = unname(unlist(f_w_olr))), 
         stats = c("c"), 
         un = TRUE, thresholds = c(cor = .1))
@@ -350,6 +371,7 @@ fem_bal_tab <- bal.tab(f_form, data = imp,
 bal_fem_obs <- tibble(All = rep(NA, 25),
                       OLS = rep(NA, 25),
                       CBGPS = rep(NA, 25),
+                      npCBGPS = rep(NA, 25),
                       OLR = rep(NA, 25))
 for(i in 1:25) {
     bal_fem_obs[i, ] <- t(fem_bal_tab$Imputation.Balance[[i]]$Observations)
@@ -358,6 +380,7 @@ for(i in 1:25) {
 # get list of mean number of balanced covariates
 bal_fem_cor <- tibble(OLS = rep(NA, 25),
                       CBGPS = rep(NA, 25),
+                      npCBGPS = rep(NA, 25),
                       OLR = rep(NA, 25))
 for(i in 1:25) {
     bal_fem_cor[i, ] <- fem_bal_tab$Imputation.Balance[[i]]$Balanced.correlations[2, ]
@@ -367,6 +390,7 @@ for(i in 1:25) {
 bal_fem <- tibble(Sample = c("Unadjusted",
                              "OLS",
                              "CBGPS",
+                             "npCBGPS",
                              "CPM"),
                   `Correlation > 0.1` = c("",
                                           paste0(mean(bal_fem_cor$OLS), " (",
@@ -375,6 +399,9 @@ bal_fem <- tibble(Sample = c("Unadjusted",
                                           paste0(mean(bal_fem_cor$CBGPS), " (",
                                                  min(bal_fem_cor$CBGPS), ", ",
                                                  max(bal_fem_cor$CBGPS), ")"),
+                                          paste0(mean(bal_fem_cor$npCBGPS), " (",
+                                                 min(bal_fem_cor$npCBGPS), ", ",
+                                                 max(bal_fem_cor$npCBGPS), ")"),
                                           paste0(mean(bal_fem_cor$OLR), " (",
                                                  min(bal_fem_cor$OLR), ", ",
                                                  max(bal_fem_cor$OLR), ")")),
@@ -385,6 +412,9 @@ bal_fem <- tibble(Sample = c("Unadjusted",
                                           paste0(round(mean(get.w(f_w_cbps)), 2), " (",
                                                  round(min(get.w(f_w_cbps)), 2), ", ",
                                                  round(max(get.w(f_w_cbps)), 2), ")"),
+                                          paste0(round(mean(get.w(f_w_npcbps)), 2), " (",
+                                                 round(min(get.w(f_w_npcbps)), 2), ", ",
+                                                 round(max(get.w(f_w_npcbps)), 2), ")"),
                                           paste0(round(mean(unlist(f_w_olr)), 2), " (",
                                                  round(min(unlist(f_w_olr)), 2), ", ",
                                                  round(max(unlist(f_w_olr)), 2), ")")))
@@ -399,6 +429,7 @@ fem_tab <- gtable_add_grob(fem_tab,
 fem_love <- love.plot(f_form, data = imp, 
         weights = list(OLS = get.w(f_w_ols),
                        CBGPS = get.w(f_w_cbps),
+                       npCBGPS = get.w(f_w_npcbps),
                        CPM = unname(unlist(f_w_olr))),
           stats = c("c"), thresholds = c(cor = .1), 
           abs = TRUE, line = TRUE) +
@@ -415,6 +446,7 @@ fem_love <- love.plot(f_form, data = imp,
 m_bal_tab <- bal.tab(m_form, data = imp, 
         weights = list(OLS = get.w(m_w_ols),
                        CBGPS = get.w(m_w_cbps),
+                       npCBGPS = get.w(m_w_npcbps),
                        OLR = unname(unlist(m_w_olr))), 
         stats = c("c"), 
         un = TRUE, thresholds = c(cor = .1))
@@ -423,6 +455,7 @@ m_bal_tab <- bal.tab(m_form, data = imp,
 bal_m_obs <- tibble(All = rep(NA, 25),
                       OLS = rep(NA, 25),
                       CBGPS = rep(NA, 25),
+                      npCBGPS = rep(NA, 25),
                       OLR = rep(NA, 25))
 for(i in 1:25) {
     bal_m_obs[i, ] <- t(m_bal_tab$Imputation.Balance[[i]]$Observations)
@@ -431,6 +464,7 @@ for(i in 1:25) {
 # get list of mean number of balanced covariates
 bal_m_cor <- tibble(OLS = rep(NA, 25),
                       CBGPS = rep(NA, 25),
+                      npCBGPS = rep(NA, 25),
                       OLR = rep(NA, 25))
 for(i in 1:25) {
     bal_m_cor[i, ] <- m_bal_tab$Imputation.Balance[[i]]$Balanced.correlations[2, ]
@@ -440,6 +474,7 @@ for(i in 1:25) {
 bal_male <- tibble(Sample = c("Unadjusted",
                              "OLS",
                              "CBGPS",
+                             "npCBGPS",
                              "CPM"),
                   `Correlation > 0.1` = c("",
                                           paste0(mean(bal_m_cor$OLS), " (",
@@ -448,6 +483,9 @@ bal_male <- tibble(Sample = c("Unadjusted",
                                           paste0(mean(bal_m_cor$CBGPS), " (",
                                                  min(bal_m_cor$CBGPS), ", ",
                                                  max(bal_m_cor$CBGPS), ")"),
+                                          paste0(mean(bal_m_cor$npCBGPS), " (",
+                                                 min(bal_m_cor$npCBGPS), ", ",
+                                                 max(bal_m_cor$npCBGPS), ")"),
                                           paste0(mean(bal_m_cor$OLR), " (",
                                                  min(bal_m_cor$OLR), ", ",
                                                  max(bal_m_cor$OLR), ")")),
@@ -458,6 +496,9 @@ bal_male <- tibble(Sample = c("Unadjusted",
                                           paste0(round(mean(get.w(m_w_cbps)), 2), " (",
                                                  round(min(get.w(m_w_cbps)), 2), ", ",
                                                  round(max(get.w(m_w_cbps)), 2), ")"),
+                                          paste0(round(mean(get.w(m_w_npcbps)), 2), " (",
+                                                 round(min(get.w(m_w_npcbps)), 2), ", ",
+                                                 round(max(get.w(m_w_npcbps)), 2), ")"),
                                           paste0(round(mean(unlist(m_w_olr)), 2), " (",
                                                  round(min(unlist(m_w_olr)), 2), ", ",
                                                  round(max(unlist(m_w_olr)), 2), ")")))
@@ -472,6 +513,7 @@ male_tab <- gtable_add_grob(male_tab,
 male_love <- love.plot(m_form, data = imp, 
         weights = list(OLS = get.w(m_w_ols),
                        CBGPS = get.w(m_w_cbps),
+                       npCBGPS = get.w(m_w_npcbps),
                        CPM = unname(unlist(m_w_olr))),
           stats = c("c"), thresholds = c(cor = .1), 
           abs = TRUE, line = TRUE) +
@@ -494,187 +536,218 @@ All tables are mean (min, max). The points represent the mean absolute treatment
 
 # Model Fitting
 
-```{r fem_mod, warning=FALSE}
-# ols
-f_ols_mod <- with(f_w_ols,
-                  glmer(Y_raw ~ exp.female + (1 | clinic.female),
-                        family = binomial)) %>%
-  pool() %>%
-  summary()
+```{r pool.boot}
+# create pool function that bootstraps standard errors for each imputed dataset
 
-# cbgps
-f_cbgps_mod <- with(f_w_cbps,
-                  glmer(Y_raw ~ exp.female + (1 | clinic.female),
-                        family = binomial)) %>%
-  pool() %>%
-  summary()
+# start with function that does resampling at cluster level instead of at individual level
+resample_cluster <- function(df, clus_id){
+  # this is specific how how the clustering is set up (as a factor of numbers)
+  levels <- unique(df[clus_id]) %>% unlist() %>% as.character() %>% as.numeric()
+  resamp_dat <- map_df(levels, 
+                       ~ sample_n(df[df[clus_id] == .x, ],
+                                  nrow(df[df[clus_id] == .x, ]),
+                                  replace = TRUE))
+  resamp_dat
+}
 
-# olr
-f_olr_mod <- map2(complete(imp, "all"), f_w_olr, ~ 
-                    glmer(Y_raw ~ exp.female + (1 | clinic.female),
-                          family = binomial,
-                          data = .x,
-                          weights = .y)) %>%
-  as.mira() %>%
-  pool() %>%
-  summary()
+# create function for pooling mm function
+
+# first need to create tidy dataframe with bootstrapped version of glmer
+# rows is the number of rows in the combined dataset
+fitlist.boot.glmer <- function(object, B) {
+  # first get summary
+  sum <- summary(object)
+  terms <- rownames(sum$coefficients)
+  # now make bootstrapped version
+  
+  # initialize dataframe
+  boot.est <- tibble(B = rep(NA, B))
+  for(i in 1:length(terms)){
+    boot.est[terms[i]] <- NA
+  }
+  # fill dataframe
+  for(b in 1:B) {
+    b_tib <- resample_cluster(df = object@frame, clus_id = names(object@flist))
+    # allows for skipping of glmer functions that don't run on particular bootstrapped data
+    b_mod <- suppressWarnings(tryCatch(glmer(object@call$formula, data = b_tib, 
+                                             family = binomial, weights = `(weights)`), 
+                                       error = function(e) e))
+    # if error, retun NA for beta coefficients
+    ifelse(any(class(b_mod) == "error"), 
+           boot.est[b, ] <- t(c(b, NA, NA)), 
+           boot.est[b, ] <- t(c(b, b_mod@beta)))
+  }
+  
+  # get standard errors for each term
+  ses <- boot.est %>%
+    select(-1) %>%
+    map_dbl(sd, na.rm = TRUE)
+  # now make tidy version
+  sum_tidy <- tibble(nobs = nrow(object@frame),
+                     term = terms,
+                     estimate = object@beta,
+                     std.error = ses)
+  sum_tidy
+}
+
+# barnard rubin function pulled directly from mice code https://rdrr.io/cran/mice/src/R/barnard.rubin.R
+barnard.rubin <- function(m, b, t, dfcom = 999999) {
+  lambda <- (1 + 1 / m) * b / t
+  lambda[lambda < 1e-04] <- 1e-04
+  dfold <- (m - 1) / lambda^2
+  dfobs <- (dfcom + 1) / (dfcom + 3) * dfcom * (1 - lambda)
+  dfold * dfobs / (dfold + dfobs)
+}
+
+pool.boot.glmer <- function(object, B) {
+  call <- paste0("pool(object = ")
+  # based on pool.fitlist from https://rdrr.io/cran/mice/src/R/pool.R
+  p <- future_map_dfr(object, ~ fitlist.boot.glmer(.x, B))
+  
+  # we don't want group_by to change the order of the terms
+  p <- p %>% mutate(term = factor(term, levels = unique(term)))
+  
+  pooled <- p %>%
+    group_by(term) %>%
+    summarise(
+      m = n(),
+      qbar = mean(estimate),
+      ubar = mean(std.error^2),
+      b = var(estimate),
+      t = ubar + (1 + 1 / m) * b,
+      dfcom = nrow(object[[1]]@frame),
+      df = barnard.rubin(m, b, t, dfcom),
+      riv = (1 + 1 / m) * b / ubar,
+      lambda = (1 + 1 / m) * b / t,
+      fmi = (riv + 2 / (df + 3)) / (riv + 1)
+    )
+  pooled <- data.frame(pooled)
+  names(pooled)[names(pooled) == "qbar"] <- "estimate"
+  
+  # finally need make mipo object to work with mice summary function
+  mipo.boot.glmer <- list(m = pooled$m[1],
+                  pooled = pooled)
+  class(mipo.boot.glmer) <- c("mipo", "data.frame")
+  mipo.boot.glmer
+}
 ```
 
-```{r male_mod, warning=FALSE}
+```{r fem_mod_boot, warning=FALSE, eval = FALSE}
+# combine imp and weights (TBD)
+f_imp_wts <- complete(imp, action = "long", include = TRUE)
+f_imp_wts$ols_wt <- c(rep(NA, 315), get.w(f_w_ols)) # since first 315 are the originals
+f_imp_wts$cbgps_wt <- c(rep(NA, 315), get.w(f_w_cbps)) # since first 315 are the originals
+f_imp_wts$npcbgps_wt <- c(rep(NA, 315), get.w(f_w_npcbps)) # since first 315 are the originals
+f_imp_wts$olr_wt <- c(rep(NA, 315), unlist(f_w_olr)) # since first 315 are the originals
+imp_wt_f <- as.mids(f_imp_wts)
+
+# run in parallel with furrr
+plan(multisession, workers = 7)
+
 # ols
-m_ols_mod <- with(m_w_ols,
-                  glmer(Y_raw ~ exp.male + (1 | clinic.female),
-                        family = binomial)) %>%
-  pool() %>%
+f_ols_mod_boot <- complete(imp_wt_f, "all") %>%
+  map(~ glmer(Y_raw ~ exp.female + (1 | clinic.female),
+               data = .x, weights = ols_wt, family = binomial)) %>%
+  pool.boot.glmer(., B = 1000) %>%
   summary()
 
 # cbgps
-m_cbgps_mod <- with(m_w_cbps,
-                  glmer(Y_raw ~ exp.male + (1 | clinic.female),
-                        family = binomial)) %>%
-  pool() %>%
+f_cbgps_mod_boot <- complete(imp_wt_f, "all") %>%
+  map(~ glmer(Y_raw ~ exp.female + (1 | clinic.female),
+               data = .x, weights = cbgps_wt, family = binomial)) %>%
+  pool.boot.glmer(., B = 1000) %>%
+  summary()
+
+# npcbgps
+f_npcbgps_mod_boot <- complete(imp_wt_f, "all") %>%
+  map(~ glmer(Y_raw ~ exp.female + (1 | clinic.female),
+               data = .x, weights = npcbgps_wt, family = binomial)) %>%
+  pool.boot.glmer(., B = 1000) %>%
   summary()
 
 # olr
-m_olr_mod <- map2(complete(imp, "all"), m_w_olr, ~ 
-                    glmer(Y_raw ~ exp.male + (1 | clinic.female),
-                          family = binomial,
-                          data = .x,
-                          weights = .y)) %>%
-  as.mira() %>%
-  pool() %>%
+f_olr_mod_boot <- complete(imp_wt_f, "all") %>%
+  map(~ glmer(Y_raw ~ exp.female + (1 | clinic.female),
+               data = .x, weights = olr_wt, family = binomial)) %>%
+  pool.boot.glmer(., B = 1000) %>%
   summary()
+
+# save as list
+f_mods_boot <- list(OLS = f_ols_mod_boot,
+                    CBGPS = f_cbgps_mod_boot,
+                    npCBGPS = f_npcbgps_mod_boot,
+                    OLR = f_olr_mod_boot)
+Save(f_mods_boot)
 ```
 
-# Figure 5 - Dose Response Plot
+```{r male_mod_boot, warning=FALSE, eval = FALSE}
+# combine imp and weights (TBD)
+m_imp_wts <- complete(imp, action = "long", include = TRUE)
+m_imp_wts$ols_wt <- c(rep(NA, 315), get.w(m_w_ols)) # since mirst 315 are the originals
+m_imp_wts$cbgps_wt <- c(rep(NA, 315), get.w(m_w_cbps)) # since mirst 315 are the originals
+m_imp_wts$npcbgps_wt <- c(rep(NA, 315), get.w(m_w_npcbps)) # since mirst 315 are the originals
+m_imp_wts$olr_wt <- c(rep(NA, 315), unlist(m_w_olr)) # since mirst 315 are the originals
+imp_wt_m <- as.mids(m_imp_wts)
 
-```{r fig5, warning=FALSE, fig.width=7, fig.height=5, eval = FALSE}
-# females
+# run in parallel with murrr
+plan(multisession, workers = 7)
+
 # ols
-f_ols_pp <- with(f_w_ols,
-                 glmer(Y_raw ~ exp.female + (1 | clinic.female),
-                       family = binomial))$analyses %>%
-  map(~ ggpredict(.x, terms = "exp.female")) %>%
-  pool_predictions() %>% 
-  tibble() %>% 
-  mutate(IPW = "OLS")
+m_ols_mod_boot <- complete(imp_wt_m, "all") %>%
+  map(~ glmer(Y_raw ~ exp.male + (1 | clinic.female),
+               data = .x, weights = ols_wt, family = binomial)) %>%
+  pool.boot.glmer(., B = 1000) %>%
+  summary()
 
 # cbgps
-f_cbgps_pp <- with(f_w_cbps,
-                  glmer(Y_raw ~ exp.female + (1 | clinic.female),
-                        family = binomial))$analyses %>%
-  map(~ ggpredict(.x, terms = "exp.female")) %>%
-  pool_predictions() %>% 
-  tibble() %>% 
-  mutate(IPW = "CBGPS")
+m_cbgps_mod_boot <- complete(imp_wt_m, "all") %>%
+  map(~ glmer(Y_raw ~ exp.male + (1 | clinic.female),
+               data = .x, weights = cbgps_wt, family = binomial)) %>%
+  pool.boot.glmer(., B = 1000) %>%
+  summary()
+
+# npcbgps
+m_npcbgps_mod_boot <- complete(imp_wt_m, "all") %>%
+  map(~ glmer(Y_raw ~ exp.male + (1 | clinic.female),
+               data = .x, weights = npcbgps_wt, family = binomial)) %>%
+  pool.boot.glmer(., B = 1000) %>%
+  summary()
 
 # olr
-f_olr_pp <- map2(complete(imp, "all"), f_w_olr, ~ 
-                    glmer(Y_raw ~ exp.female + (1 | clinic.female),
-                          family = binomial,
-                          data = .x,
-                          weights = .y)) %>%
-  map(~ ggpredict(.x, terms = "exp.female")) %>%
-  pool_predictions() %>% 
-  tibble() %>% 
-  mutate(IPW = "CPM")
+m_olr_mod_boot <- complete(imp_wt_m, "all") %>%
+  map(~ glmer(Y_raw ~ exp.male + (1 | clinic.female),
+               data = .x, weights = olr_wt, family = binomial)) %>%
+  pool.boot.glmer(., B = 1000) %>%
+  summary()
 
-# combine all three into one df
-fem_pp <- f_ols_pp %>%
-  bind_rows(f_cbgps_pp) %>%
-  bind_rows(f_olr_pp) %>%
-  mutate(IPW = factor(IPW, levels = c("OLS", "CBGPS", "CPM")),
-         x_new = ifelse(IPW == "OLS", x - 0.2, x),
-         x_new = ifelse(IPW == "CPM", x + 0.2, x_new))
-
-# combine into one plot
-fem_pp_plot <- ggplot(fem_pp) +
-  geom_errorbarh(aes(y = x_new, xmin = conf.low, xmax = conf.high, color = IPW), 
-                 alpha = 0.25, height = 0.25) +
-  geom_point(aes(x = predicted, y = x_new, color = IPW, shape = IPW), size = 1) +
-  scale_color_manual(values = c("#606060", "#919191", "#C4C4C4")) +
-  ylab("Completed Sessions") +
-  xlab("Probability of Female Postpartum \nContraceptive Use") +
-  ggtitle("A) Female Attendance") +
-  xlim(0, 1) +
-  theme +
-  theme(axis.text = element_text(size = 10))
-
-# males
-# ols
-m_ols_pp <- with(m_w_ols,
-                 glmer(Y_raw ~ exp.male + (1 | clinic.female),
-                       family = binomial))$analyses %>%
-  map(~ ggpredict(.x, terms = "exp.male")) %>%
-  pool_predictions() %>% 
-  tibble() %>% 
-  mutate(IPW = "OLS")
-
-# cbgps
-m_cbgps_pp <- with(m_w_cbps,
-                  glmer(Y_raw ~ exp.male + (1 | clinic.female),
-                        family = binomial))$analyses %>%
-  map(~ ggpredict(.x, terms = "exp.male")) %>%
-  pool_predictions() %>% 
-  tibble() %>% 
-  mutate(IPW = "CBGPS")
-
-# olr
-m_olr_pp <- map2(complete(imp, "all"), m_w_olr, ~ 
-                    glmer(Y_raw ~ exp.male + (1 | clinic.female),
-                          family = binomial,
-                          data = .x,
-                          weights = .y)) %>%
-  map(~ ggpredict(.x, terms = "exp.male")) %>%
-  pool_predictions() %>% 
-  tibble() %>% 
-  mutate(IPW = "CPM")
-
-# combine all three into one df
-m_pp <- m_ols_pp %>%
-  bind_rows(m_cbgps_pp) %>%
-  bind_rows(m_olr_pp) %>%
-  mutate(IPW = factor(IPW, levels = c("OLS", "CBGPS", "CPM")),
-         x_new = ifelse(IPW == "OLS", x - 0.2, x),
-         x_new = ifelse(IPW == "CPM", x + 0.2, x_new))
-
-# combine into one plot
-m_pp_plot <- ggplot(m_pp) +
-  geom_errorbarh(aes(y = x_new, xmin = conf.low, xmax = conf.high, color = IPW), 
-                 alpha = 0.25, height = 0.25) +
-  geom_point(aes(x = predicted, y = x_new, color = IPW, shape = IPW), size = 1) +
-  scale_color_manual(values = c("#606060", "#919191", "#C4C4C4")) +
-  ylab("") +
-  xlab("Probability of Female Postpartum \nContraceptive Use") +
-  ggtitle("B) Male Attendance") +
-  xlim(0, 1) +
-  theme +
-  theme(axis.text = element_text(size = 10))
-
-# combine
-ggarrange(fem_pp_plot, m_pp_plot, 
-          common.legend = TRUE,
-          legend = "bottom")
-
-# save plot
-ggsave("figs/fig5.pdf", width = 7, height = 5)
-# embed the font
-embed_fonts("figs/fig5.pdf")
+# save as list
+m_mods_boot <- list(OLS = m_ols_mod_boot,
+                    CBGPS = m_cbgps_mod_boot,
+                    npCBGPS = m_npcbgps_mod_boot,
+                    OLR = m_olr_mod_boot)
+Save(m_mods_boot)
 ```
 
-# Figure 6 - Forest Plot
 
-```{r fig6, fig.width=7, fig.height=3.5, eval = FALSE}
+# Table 5 - Method Characteristics and Likelihood of Female Postpartum Contraceptive Uptake
+
+```{r tab4_boot, eval = FALSE}
+Load(f_mods_boot)
+Load(m_mods_boot)
+
 # female participants
-fem_fp <- tibble(Analysis = c("OLS",
+fem_or <- tibble(Analysis = c("OLS",
                             "CBGPS",
+                            "npCBGPS",
                             "CPM"), 
-               coef = c(f_ols_mod$estimate[2],
-                           f_cbgps_mod$estimate[2],
-                           f_olr_mod$estimate[2]),
-                  se = c(f_ols_mod$std.error[2],
-                           f_cbgps_mod$std.error[2],
-                           f_olr_mod$std.error[2])) %>%
+               coef = c(f_mods_boot$OLS$estimate[2],
+                           f_mods_boot$CBGPS$estimate[2],
+                           f_mods_boot$npCBGPS$estimate[2],
+                           f_mods_boot$OLR$estimate[2]),
+                  se = c(f_mods_boot$OLS$std.error[2],
+                           f_mods_boot$CBGPS$std.error[2],
+                           f_mods_boot$npCBGPS$std.error[2],
+                           f_mods_boot$OLR$std.error[2])) %>%
   mutate(lb = coef - (1.96*se),
          ub = coef + (1.96*se),
          or = exp(coef),
@@ -683,15 +756,18 @@ fem_fp <- tibble(Analysis = c("OLS",
          `Odds Ratio (95% Confidence Interval)` = paste0(round(or, 2), " (", round(or_lb, 3), ", ", round(or_ub, 3), ")"))
 
 # male participants
-m_fp <- tibble(Analysis = c("OLS",
+m_or <- tibble(Analysis = c("OLS",
                             "CBGPS",
+                            "npCBGPS",
                             "CPM"), 
-               coef = c(m_ols_mod$estimate[2],
-                           m_cbgps_mod$estimate[2],
-                           m_olr_mod$estimate[2]),
-                  se = c(m_ols_mod$std.error[2],
-                           m_cbgps_mod$std.error[2],
-                           m_olr_mod$std.error[2])) %>%
+               coef = c(m_mods_boot$OLS$estimate[2],
+                           m_mods_boot$CBGPS$estimate[2],
+                           m_mods_boot$npCBGPS$estimate[2],
+                           m_mods_boot$OLR$estimate[2]),
+                  se = c(m_mods_boot$OLS$std.error[2],
+                           m_mods_boot$CBGPS$std.error[2],
+                           m_mods_boot$npCBGPS$std.error[2],
+                           m_mods_boot$OLR$std.error[2])) %>%
   mutate(lb = coef - (1.96*se),
          ub = coef + (1.96*se),
          or = exp(coef),
@@ -700,7 +776,7 @@ m_fp <- tibble(Analysis = c("OLS",
          `Odds Ratio (95% Confidence Interval)` = paste0(round(or, 2), " (", round(or_lb, 3), ", ", round(or_ub, 3), ")"))
 
 # now make a forestplot
-tabletext <- bind_cols(c("", "Female Participants", "Mean sIPW (min, max)",
+tab4 <- bind_cols(c("", "Female Participants", "Mean sIPW (min, max)",
                          "Mean correlations > 0.1 (min, max)", 
                          "+1 session [OR (95% CI)]", 
                          "Male Participants", "Mean sIPW (min, max)",
@@ -709,62 +785,36 @@ tabletext <- bind_cols(c("", "Female Participants", "Mean sIPW (min, max)",
                    c("OLS", "", 
                      bal_fem$`sIPW Distribution`[2],
                      bal_fem$`Correlation > 0.1`[2], 
-                     fem_fp$`Odds Ratio (95% Confidence Interval)`[1], 
+                     fem_or$`Odds Ratio (95% Confidence Interval)`[1], 
                      "", 
                      bal_male$`sIPW Distribution`[2],
                      bal_male$`Correlation > 0.1`[2], 
-                     m_fp$`Odds Ratio (95% Confidence Interval)`[1]),
+                     m_or$`Odds Ratio (95% Confidence Interval)`[1]),
                    c("CBGPS", "", 
                      bal_fem$`sIPW Distribution`[3],
                      bal_fem$`Correlation > 0.1`[3], 
-                     fem_fp$`Odds Ratio (95% Confidence Interval)`[2], 
+                     fem_or$`Odds Ratio (95% Confidence Interval)`[2], 
                      "",  
                      bal_male$`sIPW Distribution`[3],
                      bal_male$`Correlation > 0.1`[3],
-                     m_fp$`Odds Ratio (95% Confidence Interval)`[2]),
-                   c("CPM", "",  
+                     m_or$`Odds Ratio (95% Confidence Interval)`[2]),
+                   c("npCBGPS", "",  
                      bal_fem$`sIPW Distribution`[4],
                      bal_fem$`Correlation > 0.1`[4],
-                     fem_fp$`Odds Ratio (95% Confidence Interval)`[3], 
+                     fem_or$`Odds Ratio (95% Confidence Interval)`[3], 
                      "",  
                      bal_male$`sIPW Distribution`[4],
                      bal_male$`Correlation > 0.1`[4],
-                     m_fp$`Odds Ratio (95% Confidence Interval)`[3]))
-pdf("figs/fig6.pdf", height = 3.5, width = 7)
-forestplot(tabletext,
-           mean = bind_cols(c(rep(NA, 4), fem_fp$or[1], rep(NA, 3), m_fp$or[1]),
-                        c(rep(NA, 4), fem_fp$or[2], rep(NA, 3), m_fp$or[2]),
-                        c(rep(NA, 4), fem_fp$or[3], rep(NA, 3), m_fp$or[3])),
-           lower = bind_cols(c(rep(NA, 4), fem_fp$or_lb[1], rep(NA, 3), m_fp$or_lb[1]),
-                         c(rep(NA, 4), fem_fp$or_lb[2], rep(NA, 3), m_fp$or_lb[2]),
-                         c(rep(NA, 4), fem_fp$or_lb[3], rep(NA, 3), m_fp$or_lb[3])),
-           upper = bind_cols(c(rep(NA, 4), fem_fp$or_ub[1], rep(NA, 3), m_fp$or_ub[1]),
-                         c(rep(NA, 4), fem_fp$or_ub[2], rep(NA, 3), m_fp$or_ub[2]),
-                         c(rep(NA, 4), fem_fp$or_ub[3], rep(NA, 3), m_fp$or_ub[3])),
-           is.summary = c(rep(TRUE, 2), rep(FALSE, 3),
-                          TRUE, rep(FALSE, 3)),
-           xlog = TRUE,
-           xlab = "Adjusted Odds Ratio",
-           boxsize = 0.15,
-           col = fpColors(box = c("#606060", "#919191", "#C4C4C4"),
-                          line = c("#606060", "#919191", "#C4C4C4")),
-           align = "l",
-           legend = c("OLS", "CBGPS", "CPM"),
-           legend_args = fpLegend(pos = list(x = 0.85, y = 0.8)),
-           vertices = TRUE,
-           vertices.height = 0.05,
-           txt_gp = fpTxtGp(cex=0.7, 
-                            label=gpar(fontfamily="Arial"), 
-                            ticks=gpar(cex=0.6),
-                            xlab=gpar(cex=0.7)))
-dev.off()
-# embed the font
-embed_fonts("figs/fig6.pdf")
-```
-
-# Table 4 - Method Characteristics and Likelihood of Female Postpartum Contraceptive Uptake
-```{r tab4, eval=FALSE}
-kable(tabletext)
+                     m_or$`Odds Ratio (95% Confidence Interval)`[3]),
+                   c("CPM", "",  
+                     bal_fem$`sIPW Distribution`[5],
+                     bal_fem$`Correlation > 0.1`[5],
+                     fem_or$`Odds Ratio (95% Confidence Interval)`[4], 
+                     "",  
+                     bal_male$`sIPW Distribution`[5],
+                     bal_male$`Correlation > 0.1`[5],
+                     m_or$`Odds Ratio (95% Confidence Interval)`[4]))
+kable(tab4)
 ```
 
 # Session Info

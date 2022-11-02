@@ -13,7 +13,7 @@ csl: american-journal-of-epidemiology.csl
 ```{r setup, include=FALSE}
 # full code available at https://github.com/dannysack/gen_prop_wts
 
-source("../Code/orm.wt.R") # loads tidyverse, rms, and mice libraries
+source("./orm.wt.R") # loads tidyverse, rms, and mice libraries
 library(WeightIt)
 library(MatchThem)
 library(cobalt)
@@ -26,6 +26,7 @@ library(foreach)
 library(doParallel)
 library(extrafont)
 library(ggdist)
+library(survey)
 loadfonts()
 knitrSet(lang='markdown', fig.path='png_pdf/', fig.align='center', w=9, h=8, cache=TRUE)
 options(knitr.kable.NA = '')
@@ -89,17 +90,23 @@ sim_data <- function(n) {
   mu_g <- (0.25 * mage_g) + (0.0025 * page) + (0.00125 * mage_g * page) - 
   (0.21 * parity2) - (0.22 * parity3) - (0.45 * parity4) - (0.45 * parity5)
 
-  # normal exposure distribution, but round so it's ordinal
+  # normal exposure distribution, but round so it's ordinal to nearest 0.1
   x1 <- round(15 + mu_un + rnorm(n, 0, sqrt(2)), 1)
   
-  # normal exposure distribution, but marginally not normal
+  # normal exposure distribution, but marginally not normal, but round so it's ordinal to nearest 0.1
   x2 <- round(15 + mu_g + rnorm(n, 0, sqrt(2)), 1)
 
-  # poisson exposure distribution
+  # poisson exposure distribution, but round so it's ordinal to nearest 0.1
   x3 <- round(pmax(rpois(n, mu_un) + rnorm(n,0,1), 0), 1)
   
-  # log of x3
-  x4 <- log(x3 + 0.001)
+  # normal exposure distribution, but round so it's ordinal to nearest 1
+  x4 <- round(15 + mu_un + rnorm(n, 0, sqrt(2)))
+  
+  # normal exposure distribution, but marginally not normal, but round so it's ordinal to nearest 1
+  x5 <- round(15 + mu_g + rnorm(n, 0, sqrt(2)))
+
+  # poisson exposure distribution, but round so it's ordinal to nearest 1
+  x6 <- round(pmax(rpois(n, mu_un) + rnorm(n,0,1), 0))
   
   # now replicate Naimi's continuous exposures
   n_x1 <- 15 + mu_un + rnorm(n, 0, sqrt(2))
@@ -112,7 +119,7 @@ sim_data <- function(n) {
   y1 <- rbinom(n, 1, (1  + exp(-(-11.5 + log(1.25) * x1 + log(1.7) * sqrt(mage) + log(1.5) * sqrt(page) +
                         log(0.75) * parity2 + log(0.8) * parity3 + log(0.85) * parity4 + log(0.9) *parity5)))^(-1))
   
-  # normal exposure distribution, but marginally not normal, updated intercept from -11.5 to -11.4
+  # normal exposure distribution, but marginally not normal
   y2 <- rbinom(n, 1, (1  + exp(-(-13 + log(1.25) * x2 + log(1.7) * sqrt(mage_g) + 
                                    log(1.5) * sqrt(page) + log(0.75) * parity2 + 
                                    log(0.8) * parity3 + log(0.85) * parity4 + 
@@ -120,6 +127,22 @@ sim_data <- function(n) {
 
   # outcome poisson exposure distribution, uncorrelated with maternal age
   y3 <- rbinom(n, 1, (1 + exp(-(-8.05 + log(1.25) * x3 + log(1.7) * sqrt(mage) + 
+                                  log(1.5) * sqrt(page) + log(0.75) * parity2 + 
+                                  log(0.8) * parity3 + log(0.85) * parity4 + 
+                                  log(0.9) * parity5)))^(-1))
+  
+  # outcome normal exposure distribution, uncorrelated with maternal age
+  y4 <- rbinom(n, 1, (1  + exp(-(-11.5 + log(1.25) * x4 + log(1.7) * sqrt(mage) + log(1.5) * sqrt(page) +
+                        log(0.75) * parity2 + log(0.8) * parity3 + log(0.85) * parity4 + log(0.9) *parity5)))^(-1))
+  
+  # normal exposure distribution, but marginally not normal
+  y5 <- rbinom(n, 1, (1  + exp(-(-13 + log(1.25) * x5 + log(1.7) * sqrt(mage_g) + 
+                                   log(1.5) * sqrt(page) + log(0.75) * parity2 + 
+                                   log(0.8) * parity3 + log(0.85) * parity4 + 
+                                   log(0.9) *parity5)))^(-1))
+
+  # outcome poisson exposure distribution, uncorrelated with maternal age
+  y6 <- rbinom(n, 1, (1 + exp(-(-8.05 + log(1.25) * x6 + log(1.7) * sqrt(mage) + 
                                   log(1.5) * sqrt(page) + log(0.75) * parity2 + 
                                   log(0.8) * parity3 + log(0.85) * parity4 + 
                                   log(0.9) * parity5)))^(-1))
@@ -137,11 +160,20 @@ sim_data <- function(n) {
 
   # create df with all covariates as output
   data.frame(mage, mage_g, page, parity2, parity3, parity4, parity5, 
-             x1, x2, x3, x4, n_x1, n_x2, y1, y2, y3, n_y1, n_y2)
+             x1, x2, x3, x4, x5, x6, n_x1, n_x2, y1, y2, y3, y4, y5, y6, n_y1, n_y2)
 }
 
 # to check outcome prevalence with different intercepts
-#table1::table1(~ factor(y1) + factor(y2) + factor(y3), data = sim_data(n = 3000000))
+#table1::table1(~ factor(y1) + factor(y2) + factor(y3) + factor(y4) + factor(y5) + factor(y6), data = sim_data(n = 3000000))
+
+# test exposure distributions
+# test <- sim_data(n = 30000)
+# hist(test$x1)
+# hist(test$x2)
+# hist(test$x3)
+# hist(test$x4)
+# hist(test$x5)
+# hist(test$x6)
 ```
 
 # Simulations
@@ -164,7 +196,7 @@ registerDoParallel(detectCores() - 1)
 n = 3000
 
 # now generate weights 
-# (will generate weights in each simulated dataset individually to speed cbgps process)
+# (will generate weights in each simulated dataset individually)
 sims <- foreach(i = 1:n, .inorder = FALSE, .errorhandling = "remove") %dopar% {
   # first need to generate data and quantile binned exposures
   df <- sim_data(n = 1500) %>% 
@@ -186,6 +218,8 @@ sims <- foreach(i = 1:n, .inorder = FALSE, .errorhandling = "remove") %dopar% {
   x2_formula <- formula(x2 ~ mage_g + page + mage_g*page + parity2 + parity3 + parity4 + parity5)
   x3_formula <- formula(x3 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
   x4_formula <- formula(x4 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
+  x5_formula <- formula(x5 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
+  x6_formula <- formula(x6 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
 
   # use WeightIt package to generate OLS and CBGPS weights
 
@@ -194,6 +228,8 @@ sims <- foreach(i = 1:n, .inorder = FALSE, .errorhandling = "remove") %dopar% {
   x2_ols_wts <- weightit(x2_formula, df %>% filter(!is.na(x2)), method = "ps")$weights
   x3_ols_wts <- weightit(x3_formula, df %>% filter(!is.na(x3)), method = "ps")$weights
   x4_ols_wts <- weightit(x4_formula, df %>% filter(!is.na(x4)), method = "ps")$weights
+  x5_ols_wts <- weightit(x5_formula, df %>% filter(!is.na(x5)), method = "ps")$weights
+  x6_ols_wts <- weightit(x6_formula, df %>% filter(!is.na(x6)), method = "ps")$weights
 
   #CBGPS
   x1_cbgps_wts <- weightit(x1_formula, df %>% filter(!is.na(x1)), method = "cbps", 
@@ -204,9 +240,29 @@ sims <- foreach(i = 1:n, .inorder = FALSE, .errorhandling = "remove") %dopar% {
                            over = FALSE)$weights
   x4_cbgps_wts <- weightit(x4_formula, df %>% filter(!is.na(x4)), method = "cbps", 
                            over = FALSE)$weights
+  x5_cbgps_wts <- weightit(x5_formula, df %>% filter(!is.na(x5)), method = "cbps", 
+                           over = FALSE)$weights
+  x6_cbgps_wts <- weightit(x6_formula, df %>% filter(!is.na(x6)), method = "cbps", 
+                           over = FALSE)$weights
+  
+  #npCBGPS
+  x1_npcbgps_wts <- weightit(x1_formula, df %>% filter(!is.na(x1)), method = "npcbps", 
+                           over = FALSE)$weights
+  x2_npcbgps_wts <- weightit(x2_formula, df %>% filter(!is.na(x2)), method = "npcbps", 
+                           over = FALSE)$weights
+  x3_npcbgps_wts <- weightit(x3_formula, df %>% filter(!is.na(x3)), method = "npcbps", 
+                           over = FALSE)$weights
+  x4_npcbgps_wts <- weightit(x4_formula, df %>% filter(!is.na(x4)), method = "npcbps", 
+                           over = FALSE)$weights
+  x5_npcbgps_wts <- weightit(x5_formula, df %>% filter(!is.na(x5)), method = "npcbps", 
+                           over = FALSE)$weights
+  x6_npcbgps_wts <- weightit(x6_formula, df %>% filter(!is.na(x6)), method = "npcbps", 
+                           over = FALSE)$weights
 
   # use orm.wt file to create quantile binning and OLR weights
-
+  
+  
+  # only doing QB for x1-x3, because at smaller number of categories, they are the same thing
   # QB10
   x1_qb10_wts <- orm.wt(object = df %>% filter(!is.na(x1)),
                     exposure = "x1_qb10",
@@ -220,11 +276,6 @@ sims <- foreach(i = 1:n, .inorder = FALSE, .errorhandling = "remove") %dopar% {
     unlist()
   x3_qb10_wts <- orm.wt(object = df %>% filter(!is.na(x3)),
                     exposure = "x3_qb10",
-                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
-                    parity5") %>%
-    unlist()
-  x4_qb10_wts <- orm.wt(object = df %>% filter(!is.na(x4)),
-                    exposure = "x4_qb10",
                     cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
                     parity5") %>%
     unlist()
@@ -245,11 +296,6 @@ sims <- foreach(i = 1:n, .inorder = FALSE, .errorhandling = "remove") %dopar% {
                     cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
                     parity5") %>%
     unlist()
-  x4_qb15_wts <- orm.wt(object = df %>% filter(!is.na(x4)),
-                    exposure = "x4_qb15",
-                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
-                    parity5") %>%
-    unlist()
   
   # QB20
   x1_qb20_wts <- orm.wt(object = df %>% filter(!is.na(x1)),
@@ -264,11 +310,6 @@ sims <- foreach(i = 1:n, .inorder = FALSE, .errorhandling = "remove") %dopar% {
     unlist()
   x3_qb20_wts <- orm.wt(object = df %>% filter(!is.na(x3)),
                     exposure = "x3_qb20",
-                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
-                    parity5") %>%
-    unlist()
-  x4_qb20_wts <- orm.wt(object = df %>% filter(!is.na(x4)),
-                    exposure = "x4_qb20",
                     cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
                     parity5") %>%
     unlist()
@@ -294,29 +335,206 @@ sims <- foreach(i = 1:n, .inorder = FALSE, .errorhandling = "remove") %dopar% {
                     cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
                     parity5") %>%
     unlist()
+  x5_olr_wts <- orm.wt(object = df %>% filter(!is.na(x5)),
+                    exposure = "x5",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  x6_olr_wts <- orm.wt(object = df %>% filter(!is.na(x6)),
+                    exposure = "x6",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
   
   # create final dataframe
   data <- data.frame(i, df, 
-                     x1_ols_wts, x2_ols_wts, x3_ols_wts, x4_ols_wts,
-                     x1_cbgps_wts, x2_cbgps_wts, x3_cbgps_wts, x4_cbgps_wts,
-                     x1_qb10_wts, x2_qb10_wts, x3_qb10_wts, x4_qb10_wts,
-                     x1_qb15_wts, x2_qb15_wts, x3_qb15_wts, x4_qb15_wts,
-                     x1_qb20_wts, x2_qb20_wts, x3_qb20_wts, x4_qb20_wts,
-                     x1_olr_wts, x2_olr_wts, x3_olr_wts, x4_olr_wts)
+                     x1_ols_wts, x2_ols_wts, x3_ols_wts, x4_ols_wts, x5_ols_wts, x6_ols_wts,
+                     x1_cbgps_wts, x2_cbgps_wts, x3_cbgps_wts, x4_cbgps_wts, x5_cbgps_wts, x6_cbgps_wts,
+                     x1_npcbgps_wts, x2_npcbgps_wts, x3_npcbgps_wts, x4_npcbgps_wts, x5_npcbgps_wts, x6_npcbgps_wts,
+                     x1_qb10_wts, x2_qb10_wts, x3_qb10_wts, 
+                     x1_qb15_wts, x2_qb15_wts, x3_qb15_wts, 
+                     x1_qb20_wts, x2_qb20_wts, x3_qb20_wts, 
+                     x1_olr_wts, x2_olr_wts, x3_olr_wts, x4_olr_wts, x5_olr_wts, x6_olr_wts)
 }
+
+# add in simluation for anything less than 3000, with new seed across all all streams for parallel processing (from 1111 to 11111)
+set.seed(11111, kind = "L'Ecuyer-CMRG")
+n_extra <- 3000 - length(sims)
+sims2 <- foreach(i = 1:n_extra, .inorder = FALSE, .errorhandling = "remove") %dopar% {
+  # first need to generate data and quantile binned exposures
+  df <- sim_data(n = 1500) %>% 
+  mutate(x1_qb10 = as.numeric(cut2(x1, g = 10)),
+         x2_qb10 = as.numeric(cut2(x2, g = 10)),
+         x3_qb10 = as.numeric(cut2(x3, g = 10)),
+         x4_qb10 = as.numeric(cut2(x4, g = 10)),
+         x1_qb15 = as.numeric(cut2(x1, g = 15)),
+         x2_qb15 = as.numeric(cut2(x2, g = 15)),
+         x3_qb15 = as.numeric(cut2(x3, g = 15)),
+         x4_qb15 = as.numeric(cut2(x4, g = 15)),
+         x1_qb20 = as.numeric(cut2(x1, g = 20)),
+         x2_qb20 = as.numeric(cut2(x2, g = 20)),
+         x3_qb20 = as.numeric(cut2(x3, g = 20)),
+         x4_qb20 = as.numeric(cut2(x4, g = 20)))
+  
+  # start by creating formulas
+  x1_formula <- formula(x1 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
+  x2_formula <- formula(x2 ~ mage_g + page + mage_g*page + parity2 + parity3 + parity4 + parity5)
+  x3_formula <- formula(x3 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
+  x4_formula <- formula(x4 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
+  x5_formula <- formula(x5 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
+  x6_formula <- formula(x6 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
+
+  # use WeightIt package to generate OLS and CBGPS weights
+
+  # OLS
+  x1_ols_wts <- weightit(x1_formula, df %>% filter(!is.na(x1)), method = "ps")$weights
+  x2_ols_wts <- weightit(x2_formula, df %>% filter(!is.na(x2)), method = "ps")$weights
+  x3_ols_wts <- weightit(x3_formula, df %>% filter(!is.na(x3)), method = "ps")$weights
+  x4_ols_wts <- weightit(x4_formula, df %>% filter(!is.na(x4)), method = "ps")$weights
+  x5_ols_wts <- weightit(x5_formula, df %>% filter(!is.na(x5)), method = "ps")$weights
+  x6_ols_wts <- weightit(x6_formula, df %>% filter(!is.na(x6)), method = "ps")$weights
+
+  #CBGPS
+  x1_cbgps_wts <- weightit(x1_formula, df %>% filter(!is.na(x1)), method = "cbps", 
+                           over = FALSE)$weights
+  x2_cbgps_wts <- weightit(x2_formula, df %>% filter(!is.na(x2)), method = "cbps", 
+                           over = FALSE)$weights
+  x3_cbgps_wts <- weightit(x3_formula, df %>% filter(!is.na(x3)), method = "cbps", 
+                           over = FALSE)$weights
+  x4_cbgps_wts <- weightit(x4_formula, df %>% filter(!is.na(x4)), method = "cbps", 
+                           over = FALSE)$weights
+  x5_cbgps_wts <- weightit(x5_formula, df %>% filter(!is.na(x5)), method = "cbps", 
+                           over = FALSE)$weights
+  x6_cbgps_wts <- weightit(x6_formula, df %>% filter(!is.na(x6)), method = "cbps", 
+                           over = FALSE)$weights
+  
+  #npCBGPS
+  x1_npcbgps_wts <- weightit(x1_formula, df %>% filter(!is.na(x1)), method = "npcbps", 
+                           over = FALSE)$weights
+  x2_npcbgps_wts <- weightit(x2_formula, df %>% filter(!is.na(x2)), method = "npcbps", 
+                           over = FALSE)$weights
+  x3_npcbgps_wts <- weightit(x3_formula, df %>% filter(!is.na(x3)), method = "npcbps", 
+                           over = FALSE)$weights
+  x4_npcbgps_wts <- weightit(x4_formula, df %>% filter(!is.na(x4)), method = "npcbps", 
+                           over = FALSE)$weights
+  x5_npcbgps_wts <- weightit(x5_formula, df %>% filter(!is.na(x5)), method = "npcbps", 
+                           over = FALSE)$weights
+  x6_npcbgps_wts <- weightit(x6_formula, df %>% filter(!is.na(x6)), method = "npcbps", 
+                           over = FALSE)$weights
+
+  # use orm.wt file to create quantile binning and OLR weights
+  
+  
+  # only doing QB for x1-x3, because at smaller number of categories, they are the same thing
+  # QB10
+  x1_qb10_wts <- orm.wt(object = df %>% filter(!is.na(x1)),
+                    exposure = "x1_qb10",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  x2_qb10_wts <- orm.wt(object = df %>% filter(!is.na(x2)),
+                    exposure = "x2_qb10",
+                    cov_form = "~ mage_g + page + mage_g*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  x3_qb10_wts <- orm.wt(object = df %>% filter(!is.na(x3)),
+                    exposure = "x3_qb10",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  
+  # QB15
+  x1_qb15_wts <- orm.wt(object = df %>% filter(!is.na(x1)),
+                    exposure = "x1_qb15",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  x2_qb15_wts <- orm.wt(object = df %>% filter(!is.na(x2)),
+                    exposure = "x2_qb15",
+                    cov_form = "~ mage_g + page + mage_g*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  x3_qb15_wts <- orm.wt(object = df %>% filter(!is.na(x3)),
+                    exposure = "x3_qb15",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  
+  # QB20
+  x1_qb20_wts <- orm.wt(object = df %>% filter(!is.na(x1)),
+                    exposure = "x1_qb20",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  x2_qb20_wts <- orm.wt(object = df %>% filter(!is.na(x2)),
+                    exposure = "x2_qb20",
+                    cov_form = "~ mage_g + page + mage_g*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  x3_qb20_wts <- orm.wt(object = df %>% filter(!is.na(x3)),
+                    exposure = "x3_qb20",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+
+  # OLR
+  x1_olr_wts <- orm.wt(object = df %>% filter(!is.na(x1)),
+                    exposure = "x1",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  x2_olr_wts <- orm.wt(object = df %>% filter(!is.na(x2)),
+                    exposure = "x2",
+                    cov_form = "~ mage_g + page + mage_g*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  x3_olr_wts <- orm.wt(object = df %>% filter(!is.na(x3)),
+                    exposure = "x3",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  x4_olr_wts <- orm.wt(object = df %>% filter(!is.na(x4)),
+                    exposure = "x4",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  x5_olr_wts <- orm.wt(object = df %>% filter(!is.na(x5)),
+                    exposure = "x5",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  x6_olr_wts <- orm.wt(object = df %>% filter(!is.na(x6)),
+                    exposure = "x6",
+                    cov_form = "~ mage + page + mage*page + parity2 + parity3 + parity4 + 
+                    parity5") %>%
+    unlist()
+  
+  # create final dataframe
+  data <- data.frame(i, df, 
+                     x1_ols_wts, x2_ols_wts, x3_ols_wts, x4_ols_wts, x5_ols_wts, x6_ols_wts,
+                     x1_cbgps_wts, x2_cbgps_wts, x3_cbgps_wts, x4_cbgps_wts, x5_cbgps_wts, x6_cbgps_wts,
+                     x1_npcbgps_wts, x2_npcbgps_wts, x3_npcbgps_wts, x4_npcbgps_wts, x5_npcbgps_wts, x6_npcbgps_wts,
+                     x1_qb10_wts, x2_qb10_wts, x3_qb10_wts, 
+                     x1_qb15_wts, x2_qb15_wts, x3_qb15_wts, 
+                     x1_qb20_wts, x2_qb20_wts, x3_qb20_wts, 
+                     x1_olr_wts, x2_olr_wts, x3_olr_wts, x4_olr_wts, x5_olr_wts, x6_olr_wts)
+}
+
+# combine
+sims <- append(sims, sims2)
 
 # save simulation output
 Save(sims)
 ```
 
-```{r load_sims}
+```{r load_sims, cache.lazy=FALSE}
 # load simulation data
 Load(sims)
 
 # make it a dataframe
 df <- sims %>% bind_rows(.id = "i")
 
-# create a new dataset with 4.5 million rows to simluate the truth
+# create a new dataset with 4.5 million rows to simulate the truth
 set.seed(1111)
 df_msm_sim <- sim_data(n = nrow(df))
 ```
@@ -325,13 +543,13 @@ df_msm_sim <- sim_data(n = nrow(df))
 # Marginal Structural Model "Truth"
 getMeanProb_MSM <- function(dat, val, xnum) {
     # returns the mean outcome probability (that is, an estimate of E[Y(t)]) at exposure value [val]
-    if (xnum == "x1") {
+    if (xnum == "x1" | xnum == "x4") {
         alpha <- -11.5   
         magevar <- "mage"
-    } else if (xnum == "x2") {
+    } else if (xnum == "x2" | xnum == "x5") {
         alpha <- -13   
         magevar <- "mage_g"
-    } else if (xnum == "x3") {
+    } else if (xnum == "x3" | xnum == "x6") {
         alpha <- -8.05
         magevar <- "mage"
     }
@@ -351,13 +569,13 @@ getMeanProb_MSM <- function(dat, val, xnum) {
 
 # run it with parallel processing
 
-# register clusters (use 3 cores because 3 processes)
-registerDoParallel(3)
+# register clusters (use 6 cores because 6 processes)
+registerDoParallel(6)
 
 # now generate weights 
-msm_truths <- foreach(i = 1:3, .inorder = FALSE, .errorhandling = "remove") %dopar% {
+msm_truths <- foreach(i = 1:6, .inorder = FALSE, .errorhandling = "remove") %dopar% {
   #exposures
-  exps <- c("x1", "x2", "x3")
+  exps <- c("x1", "x2", "x3", "x4", "x5", "x6")
   
   # each is a vector of estimates of E[Y(t)]'s: one for each unique t in the original dataset 
   # (excluding repeats)
@@ -375,19 +593,27 @@ Load(msm_truths)
 x1_truth_key <- tibble(x1 = unique(df_msm_sim$x1), prob_x1 = unlist(msm_truths[1]))
 x2_truth_key <- tibble(x2 = unique(df_msm_sim$x2), prob_x2 = unlist(msm_truths[2]))
 x3_truth_key <- tibble(x3 = unique(df_msm_sim$x3), prob_x3 = unlist(msm_truths[3]))
+x4_truth_key <- tibble(x4 = unique(df_msm_sim$x4), prob_x4 = unlist(msm_truths[4]))
+x5_truth_key <- tibble(x5 = unique(df_msm_sim$x5), prob_x5 = unlist(msm_truths[5]))
+x6_truth_key <- tibble(x6 = unique(df_msm_sim$x6), prob_x6 = unlist(msm_truths[6]))
 
 # now need to link truths with exposure they match
 x_truths <- df_msm_sim %>%
-  select(x1, x2, x3)
+  select(x1, x2, x3, x4, x5, x6)
 
 # put in truths
 x_truths <- left_join(x_truths, x1_truth_key, by = "x1")
 x_truths <- left_join(x_truths, x2_truth_key, by = "x2")
 x_truths <- left_join(x_truths, x3_truth_key, by = "x3")
+x_truths <- left_join(x_truths, x4_truth_key, by = "x4")
+x_truths <- left_join(x_truths, x5_truth_key, by = "x5")
+x_truths <- left_join(x_truths, x6_truth_key, by = "x6")
 
-# show that there are no non-missing values of prob_x1, prob_x2, and prob_x3 after joining
-sum(is.na(x_truths$prob_x1), is.na(x_truths$prob_x2), is.na(x_truths$prob_x3))
-sum(!is.na(x_truths$prob_x1), !is.na(x_truths$prob_x2), !is.na(x_truths$prob_x3))/3
+# show that there are no non-missing values of prob_x1:prob_x6 after joining
+sum(is.na(x_truths$prob_x1), is.na(x_truths$prob_x2), is.na(x_truths$prob_x3),
+    is.na(x_truths$prob_x4), is.na(x_truths$prob_x5), is.na(x_truths$prob_x6))
+sum(!is.na(x_truths$prob_x1), !is.na(x_truths$prob_x2), !is.na(x_truths$prob_x3),
+    !is.na(x_truths$prob_x4), !is.na(x_truths$prob_x5), !is.na(x_truths$prob_x6))/6
 
 # Our MSM: logit{E[Y(t)]}= b0 + b1*t
 #     The warning is OK!
@@ -400,17 +626,26 @@ true_x2 <- coef(msm_x2)["x_truths$x2"] %>% unname()
 msm_x3 <- glm(x_truths$prob_x3 ~ x_truths$x3, family= binomial)
 true_x3 <- coef(msm_x3)["x_truths$x3"] %>% unname()
 
+msm_x4 <- glm(x_truths$prob_x4 ~ x_truths$x4, family= binomial)
+true_x4 <- coef(msm_x4)["x_truths$x4"] %>% unname()
+
+msm_x5 <- glm(x_truths$prob_x5 ~ x_truths$x5, family= binomial)
+true_x5 <- coef(msm_x5)["x_truths$x5"] %>% unname()
+
+msm_x6 <- glm(x_truths$prob_x6 ~ x_truths$x6, family= binomial)
+true_x6 <- coef(msm_x6)["x_truths$x6"] %>% unname()
+
 # Austin, 2018 approach to finding the truth
 # find the true probability, across all 4.5 million observations at each decile (seq(0.1, 0.9, 0.1))
 # the the expected probabilities are found below in the bias chunk
 getMeanProb <- function(dat, val, xnum) {
-    if (xnum == 1) {
+    if (xnum == 1 | xnum == 4) {
         alpha <- -11.5    
         magevar <- "mage"
-    } else if (xnum == 2) {
+    } else if (xnum == 2 | xnum == 5) {
         alpha <- -13   
         magevar <- "mage_g"
-    } else if (xnum == 3) {
+    } else if (xnum == 3 | xnum == 6) {
         alpha <- -8.05
         magevar <- "mage"
     }
@@ -438,9 +673,41 @@ true2_x2_qs <- map_dbl(seq(0.1, 0.9, 0.1), ~ getMeanProb(dat = df_msm_sim,
 # x3
 true2_x3_qs <- map_dbl(seq(0.1, 0.9, 0.1), ~ getMeanProb(dat = df_msm_sim, 
                                                          val = quantile(df_msm_sim$x3, .x), xnum = 3))
+
+# x4
+true2_x4_qs <- map_dbl(seq(0.1, 0.9, 0.1), ~ getMeanProb(dat = df_msm_sim, 
+                                                         val = quantile(df_msm_sim$x4, .x), xnum = 4))
+
+# x5
+true2_x5_qs <- map_dbl(seq(0.1, 0.9, 0.1), ~ getMeanProb(dat = df_msm_sim, 
+                                                         val = quantile(df_msm_sim$x5, .x), xnum = 5))
+
+# x6
+true2_x6_qs <- map_dbl(seq(0.1, 0.9, 0.1), ~ getMeanProb(dat = df_msm_sim, 
+                                                         val = quantile(df_msm_sim$x6, .x), xnum = 6))
 ```
 
-### Supplemental Table 1.1 - Dose Response Declies
+### Supplemental Table 1.1 - Updated Exposure Levels
+
+```{r exp_levels}
+# get number of exposure levels across simulations
+exp_levels <- function(data) {
+  x1 <- n_distinct(data$x1)
+  x2 <- n_distinct(data$x2)
+  x3 <- n_distinct(data$x3)
+  x4 <- n_distinct(data$x4)
+  x5 <- n_distinct(data$x5)
+  x6 <- n_distinct(data$x6)
+  
+  data.frame(x1, x2, x3, x4, x5, x6)
+}
+
+suptab2 <- map_df(sims, ~ exp_levels(.x)) %>% summary()
+kable(suptab2) %>%
+  kable_classic(html_font = "Arial", full_width = FALSE)
+```
+
+### Supplemental Table 1.2 - Dose Response Deciles
 
 ```{r deciles}
 # create deciles quantiles for each Austin approach
@@ -450,18 +717,27 @@ x2_quants <- map_dbl(seq(0.1, 0.9, 0.1), ~ quantile(df$x2, .x))
 
 x3_quants <- map_dbl(seq(0.1, 0.9, 0.1), ~ quantile(df$x3, .x))
 
+x4_quants <- map_dbl(seq(0.1, 0.9, 0.1), ~ quantile(df$x4, .x))
+
+x5_quants <- map_dbl(seq(0.1, 0.9, 0.1), ~ quantile(df$x5, .x))
+
+x6_quants <- map_dbl(seq(0.1, 0.9, 0.1), ~ quantile(df$x6, .x))
+
 # print table of decile values
 dec_tab <- tibble(Decile = c(1:9),
                   X1 = x1_quants,
                   X2 = x2_quants,
-                  X3 = x3_quants)
+                  X3 = x3_quants,
+                  X4 = x4_quants,
+                  X5 = x5_quants,
+                  X6 = x6_quants)
 kable(dec_tab) %>%
   kable_classic(html_font = "Arial", full_width = FALSE)
 ```
 
 # Recreating Distributions from Naimi et al.
 
-## Supplemental Table 1.2 - Simulation Descriptive Statistics
+## Supplemental Table 1.3 - Simulation Descriptive Statistics
 
 ```{r tab1}
 # recreate table 1
@@ -473,13 +749,18 @@ tab1 <- tibble(`Variable (Distribution)` = c("Maternal Age (normal)",
                                              "3",
                                              "4",
                                              "5+",
-                                             "X1 (normal, naimi)",
-                                             "X2 (normal, skewed)",
-                                             "X3 (Poisson, naimi)",
-                                             #"X4 (Poisson, log(naimi))",
+                                             "X1 (normal, naimi) - rounded to 0.1",
+                                             "X2 (normal, skewed) - rounded to 0.1",
+                                             "X3 (Poisson, naimi) - rounded to 0.1",
+                                             "X4 (normal, naimi) - rounded to 1",
+                                             "X5 (normal, skewed) - rounded to 1",
+                                             "X6 (Poisson, naimi) - rounded to 1",
                                              "Y1 (Bernoulli, naimi)",
                                              "Y2 (Bernoulli, skewed)",
                                              "Y3 (Bernoulli, naimi)",
+                                             "Y4 (Bernoulli, naimi)",
+                                             "Y5 (Bernoulli, skewed)",
+                                             "Y6 (Bernoulli, naimi)",
                                              "Naimi Homoscedastic X",
                                              "Naimi Heteroscedastic X",
                                              "Naimi Homoscedastic Y",
@@ -495,10 +776,15 @@ tab1 <- tibble(`Variable (Distribution)` = c("Maternal Age (normal)",
                         mean(df$x1),
                         mean(df$x2),
                         mean(df$x3, na.rm = TRUE),
-                        #mean(df$x4, na.rm = TRUE),
+                        mean(df$x4, na.rm = TRUE),
+                        mean(df$x5, na.rm = TRUE),
+                        mean(df$x6, na.rm = TRUE),
                         mean(df$y1),
                         mean(df$y2),
                         mean(df$y3, na.rm = TRUE),
+                        mean(df$y4, na.rm = TRUE),
+                        mean(df$y5, na.rm = TRUE),
+                        mean(df$y6, na.rm = TRUE),
                         mean(df$n_x1),
                         mean(df$n_x2, na.rm = TRUE),
                         mean(df$n_y1),
@@ -514,10 +800,15 @@ tab1 <- tibble(`Variable (Distribution)` = c("Maternal Age (normal)",
                         var(df$x1),
                         var(df$x2),
                         var(df$x3, na.rm = TRUE),
-                        #var(df$x4, na.rm = TRUE),
+                        var(df$x4, na.rm = TRUE),
+                        var(df$x5, na.rm = TRUE),
+                        var(df$x6, na.rm = TRUE),
                         var(df$y1),
                         var(df$y2),
                         var(df$y3, na.rm = TRUE),
+                        var(df$y4, na.rm = TRUE),
+                        var(df$y5, na.rm = TRUE),
+                        var(df$y6, na.rm = TRUE),
                         var(df$n_x1),
                         var(df$n_x2, na.rm = TRUE),
                         var(df$n_y1),
@@ -531,7 +822,7 @@ kable(tab1, digits = 2) %>%
 
 ## Supplemental Figure 1.1 - Continuous Exposure
 
-```{r fig2_cont, fig.width=8, fig.height=4}
+```{r fig2_cont, fig.width=8, fig.height=4, cache.lazy=FALSE}
 # now create plot
 naimix1 <- ggplot(df, aes(x = n_x1)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.5, alpha = 0.5, color = "grey50") +
@@ -552,6 +843,7 @@ naimix2 <- ggplot(df, aes(x = n_x2)) +
 # recreate figure 1
 ggarrange(naimix1, naimix2,
           labels = c("A", "B"))
+#ggsave("./sim_png/supfig1.1.png")
 ```
 
 Panel A) Homoscedastic Continuous Exposure, Panel B) Heteroscedastic Continuous Exposure
@@ -600,34 +892,14 @@ x2_plot_n_log <- ggplot() +
 ggarrange(x1_plot_n, x2_plot_n, x2_plot_n_log,
           nrow = 1,
           labels = c("A", "B", "C"))
-
+#ggsave("./sim_png/supfig1.2.png")
 ```
-
-Panel A) Homoscedastic Continuous Exposure, Panel B) Heteroscedastic Continuous Exposure, Panel C) Heteroscadastic log of Continuous Exposure
 
 # Updated Distributions
 
-## Supplemental Table 1.3 - Updated Exposure Levels
-
-```{r exp_levels}
-# get number of exposure levels across simulations
-exp_levels <- function(data) {
-  x1 <- n_distinct(data$x1)
-  x2 <- n_distinct(data$x2)
-  x3 <- n_distinct(data$x3)
-  #x4 <- n_distinct(data$x4)
-  
-  data.frame(x1, x2, x3)
-}
-
-suptab2 <- map_df(sims, ~ exp_levels(.x)) %>% summary()
-kable(suptab2) %>%
-  kable_classic(html_font = "Arial", full_width = FALSE)
-```
-
 ## Supplemental Figure 1.3 - Maternal Age Distributions
 
-```{r fig1_ma, fig.width=6, fig.height=3}
+```{r fig1_ma, fig.width=6, fig.height=3, cache.lazy=FALSE}
 mage_hist <- df %>%
   ggplot(aes(x = mage)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
@@ -650,41 +922,43 @@ mage_g_hist <- df %>%
 
 ggarrange(mage_hist, mage_g_hist,
           labels = c("A", "B"))
+#ggsave("./sim_png/supfig1.3.png")
 ```
 
 Supplemental Figure 3 shows the updated marginal distributions of maternal age (`mage`) and skewed maternal age (`mage_g`). Despite similar means and variances in `mage` and `mage_g`, `mage` is normally distributed whereas `mage_g` is significantly left-skewed.
 
 ## Supplemental Figure 1.4 - Exposure-Covariate Correlations
 
-```{r fig1, fig.width=9, fig.height=3}
+```{r fig1, fig.width=9, fig.height=3, cache.lazy=FALSE}
 df %>%
-  select(mage, mage_g, x1:x3) %>%
-  pivot_longer(x1:x3) %>%
-  mutate(mage_fin = ifelse(name %in% c("x1", "x3"), mage, mage_g)) %>%
+  select(mage, mage_g, x1:x6) %>%
+  pivot_longer(x1:x6) %>%
+  mutate(mage_fin = ifelse(name %in% c("x1", "x3", "x4", "x6"), mage, mage_g)) %>%
   mutate(name = factor(name,
-                       labels = c(expression(paste("A. ", X[1], " - Homoscedastic, Naimi")),
-                                  expression(paste("B. ", X[2], " - Homoscedastic, Skewed")),
-                                  expression(paste("C. ", X[3], " - Heterocedastic, Naimi"))))) %>%
-                                  #expression(paste("D. ", X[4], " - Heterocedastic, log(Naimi + 0.001)"))))) %>%
+                       labels = c(expression(paste("A. ", X[1], " - Homoscedastic, Naimi (0.1)")),
+                                  expression(paste("B. ", X[2], " - Homoscedastic, Skewed (0.1)")),
+                                  expression(paste("C. ", X[3], " - Heterocedastic, Naimi (0.1)")),
+                                  expression(paste("D. ", X[4], " - Homoscedastic, Naimi (1)")),
+                                  expression(paste("E. ", X[5], " - Homoscedastic, Skewed (1)")),
+                                  expression(paste("F. ", X[6], " - Heterocedastic, Naimi (1)"))))) %>%
   ggplot(aes(x = mage_fin, y = value)) +
   facet_wrap(~ name, labeller = "label_parsed") +
   geom_point(alpha = 0.01) +
   ylab("Exposure") +
   xlab("Maternal Age (years)") +
   theme
+#ggsave("./sim_png/supfig1.4.png")
 ```
-
-Supplemental Figure 4 shows the relationships between maternal age (`mage`) or skewed maternal age (`mage_g`) and the generated exposure scenarios, which confirms increased correlations in the correlated case (Panel B [$X_2$]).
 
 # Marginal and Conditional Exposure Distributions
 
 ## Figure 1 - Marginal and Conditional Exposure Distribution
 
-```{r fig2, fig.width=7, fig.height=5, eval = FALSE}
+```{r fig2, fig.width=7, fig.height=7, eval = FALSE}
 # Marginal Exposure Distribution
 
 # now create plot
-homoscedasticx1 <- ggplot(df, aes(x = x1)) +
+dens_x1 <- ggplot(df, aes(x = x1)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
   geom_density(adjust = 2) +
   ylab("Density") +
@@ -694,7 +968,7 @@ homoscedasticx1 <- ggplot(df, aes(x = x1)) +
   theme + 
   theme(text = element_text(size = 8.5))
 
-heteroscedasticx2 <- ggplot(df, aes(x = x2)) +
+dens_x2 <- ggplot(df, aes(x = x2)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
   geom_density(adjust = 2) +
   ylab("Density") +
@@ -704,7 +978,7 @@ heteroscedasticx2 <- ggplot(df, aes(x = x2)) +
   theme + 
   theme(text = element_text(size = 8.5))
 
-homoscedasticx3 <- ggplot(df, aes(x = x3)) +
+dens_x3 <- ggplot(df, aes(x = x3)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
   geom_density(adjust = 2) +
   ylab("Density") +
@@ -713,12 +987,34 @@ homoscedasticx3 <- ggplot(df, aes(x = x3)) +
   theme + 
   theme(text = element_text(size = 8.5))
 
-# heteroscedasticx4 <- ggplot(df, aes(x = x4)) +
-#   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
-#   geom_density(adjust = 10) +
-#   ylab("Density") +
-#   scale_x_continuous(name = expression(paste(X[4], " (C: Non-Normal; M: Non-Normal - log)"))) +
-#   theme
+dens_x4 <- ggplot(df, aes(x = x4)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1, alpha = 0.5, color = "grey50") +
+  #geom_density(adjust = 2) +
+  ylab("Density") +
+  scale_x_continuous(name = expression(paste(X[4]))) +
+  # labs(caption = paste0("Skew (", round(moments::skewness(df$x4), 3), 
+  #       "), Kurtosis (", round(moments::kurtosis(df$x4), 3), ")")) +
+  theme + 
+  theme(text = element_text(size = 8.5))
+
+dens_x5 <- ggplot(df, aes(x = x5)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1, alpha = 0.5, color = "grey50") +
+  #geom_density(adjust = 2) +
+  ylab("Density") +
+  scale_x_continuous(name = expression(paste(X[5]))) +
+  # labs(caption = paste0("Skew (", round(moments::skewness(df$x5), 3), 
+  #       "), Kurtosis (", round(moments::kurtosis(df$x5), 3), ")")) +
+  theme + 
+  theme(text = element_text(size = 8.5))
+
+dens_x6 <- ggplot(df, aes(x = x6)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1, alpha = 0.5, color = "grey50") +
+  #geom_density(adjust = 2) +
+  ylab("Density") +
+  scale_x_continuous(name = expression(paste(X[6]))) +
+  # labs(caption = "  ") +
+  theme + 
+  theme(text = element_text(size = 8.5))
 
 # Conditional Exposure Distribution
 
@@ -729,57 +1025,85 @@ ols_x2 <- ols(x2 ~ + mage_g + page + mage_g*page + parity2 + parity3 + parity4 +
                 parity5, data = df)
 ols_x3 <- ols(x3 ~ + mage + page + mage*page + parity2 + parity3 + parity4 + 
                 parity5, data = df)
-# ols_x4 <- ols(x4 ~ + mage + page + mage*page + parity2 + parity3 + parity4 + parity5, data = df)
+ols_x4 <- ols(x4 ~ + mage + page + mage*page + parity2 + parity3 + parity4 + 
+                parity5, data = df)
+ols_x5 <- ols(x5 ~ + mage_g + page + mage_g*page + parity2 + parity3 + parity4 + 
+                parity5, data = df)
+ols_x6 <- ols(x6 ~ + mage + page + mage*page + parity2 + parity3 + parity4 + 
+                parity5, data = df)
 
 # linear predictors
 preds_x1 <- predict(ols_x1)
 preds_x2 <- predict(ols_x2)
 preds_x3 <- predict(ols_x3)
-# preds_x4 <- predict(ols_x4)
+preds_x4 <- predict(ols_x4)
+preds_x5 <- predict(ols_x5)
+preds_x6 <- predict(ols_x6)
 
 # residuals
 res_x1 <- residuals(ols_x1)
 res_x2 <- residuals(ols_x2)
 res_x3 <- residuals(ols_x3)
-# res_x4 <- residuals(ols_x4)
+res_x4 <- residuals(ols_x4)
+res_x5 <- residuals(ols_x5)
+res_x6 <- residuals(ols_x6)
 
 # now plot
 x1_plot <- ggplot() +
   geom_point(aes(x = preds_x1, y = res_x1), alpha = 0.01) +
   ylab("Residual") +
-  xlab("Linear Predictor") +
+  scale_x_continuous(name = expression(paste("Linear Predictor (", X[1], ")"))) +
   theme + 
   theme(text = element_text(size = 8.5))
 
 x2_plot <- ggplot() +
   geom_point(aes(x = preds_x2, y = res_x2), alpha = 0.01) +
   ylab("Residual") +
-  xlab("Linear Predictor") +
+  scale_x_continuous(name = expression(paste("Linear Predictor (", X[2], ")"))) +
   theme + 
   theme(text = element_text(size = 8.5))
 
 x3_plot <- ggplot() +
   geom_point(aes(x = preds_x3, y = res_x3), alpha = 0.01) +
   ylab("Residual") +
-  xlab("Linear Predictor") +
+  scale_x_continuous(name = expression(paste("Linear Predictor (", X[3], ")"))) +
   theme + 
   theme(text = element_text(size = 8.5))
 
-# x4_plot <- ggplot() +
-#   geom_point(aes(x = preds_x4, y = res_x4), alpha = 0.01) +
-#   ylab("Residual") +
-#   xlab("Linear Predictor") +
-#   theme + 
-#   theme(text = element_text(size = 8))
+x4_plot <- ggplot() +
+  geom_point(aes(x = preds_x4, y = res_x4), alpha = 0.01) +
+  ylab("Residual") +
+  scale_x_continuous(name = expression(paste("Linear Predictor (", X[4], ")"))) +
+  theme +
+  theme(text = element_text(size = 8))
+
+x5_plot <- ggplot() +
+  geom_point(aes(x = preds_x5, y = res_x5), alpha = 0.01) +
+  ylab("Residual") +
+  scale_x_continuous(name = expression(paste("Linear Predictor (", X[5], ")"))) +
+  theme +
+  theme(text = element_text(size = 8))
+
+x6_plot <- ggplot() +
+  geom_point(aes(x = preds_x6, y = res_x6), alpha = 0.01) +
+  ylab("Residual") +
+  scale_x_continuous(name = expression(paste("Linear Predictor (", X[6], ")"))) +
+  theme +
+  theme(text = element_text(size = 8))
 
 # combine
-ggarrange(homoscedasticx1, heteroscedasticx2,
-          homoscedasticx3,
-          x1_plot, x2_plot, x3_plot,
-          labels = c("A)", "B)", "C)", "D)", "E)", "F)"), 
-          nrow = 2, ncol = 3)
+ggarrange(dens_x1, x1_plot,
+          dens_x2, x2_plot,
+          dens_x3, x3_plot,
+          dens_x4, x4_plot,
+          dens_x5, x5_plot,
+          dens_x6, x6_plot,
+          labels = c("A)", "B)", "C)", "D)", "E)", "F)",
+                     "G)", "H)", "I)", "J)", "K)", "L)"), 
+          nrow = 6, ncol = 2,
+          font.label = list(size = 10))
 # save plot
-ggsave("figs/fig1.tiff", width = 7, height = 5)
+ggsave("figs/fig1.tiff", width = 7, height = 7)
 ```
 
 
@@ -789,30 +1113,46 @@ ggsave("figs/fig1.tiff", width = 7, height = 5)
 # make dataframe that gives the mean IPW weights for each simulation 
 # (will then take mean, min, and max of those)
 mean_wts <- df %>%
-  select(i, x1_ols_wts:x4_olr_wts) %>%
+  select(i, x1_ols_wts:x6_olr_wts) %>%
   group_by(i) %>%
   summarise(x1_ols_wts = mean(x1_ols_wts),
             x1_cbgps_wts = mean(x1_cbgps_wts),
+            x1_npcbgps_wts = mean(x1_npcbgps_wts),
             x1_qb10_wts = mean(x1_qb10_wts),
             x1_qb15_wts = mean(x1_qb15_wts),
             x1_qb20_wts = mean(x1_qb20_wts),
             x1_olr_wts = mean(x1_olr_wts),
             x2_ols_wts = mean(x2_ols_wts),
             x2_cbgps_wts = mean(x2_cbgps_wts),
+            x2_npcbgps_wts = mean(x2_npcbgps_wts),
             x2_qb10_wts = mean(x2_qb10_wts),
             x2_qb15_wts = mean(x2_qb15_wts),
             x2_qb20_wts = mean(x2_qb20_wts),
             x2_olr_wts = mean(x2_olr_wts),
             x3_ols_wts = mean(x3_ols_wts),
             x3_cbgps_wts = mean(x3_cbgps_wts),
+            x3_npcbgps_wts = mean(x3_npcbgps_wts),
             x3_qb10_wts = mean(x3_qb10_wts),
             x3_qb15_wts = mean(x3_qb15_wts),
             x3_qb20_wts = mean(x3_qb20_wts),
-            x3_olr_wts = mean(x3_olr_wts))
+            x3_olr_wts = mean(x3_olr_wts),
+            x4_ols_wts = mean(x4_ols_wts),
+            x4_cbgps_wts = mean(x4_cbgps_wts),
+            x4_npcbgps_wts = mean(x4_npcbgps_wts),
+            x4_olr_wts = mean(x4_olr_wts),
+            x5_ols_wts = mean(x5_ols_wts),
+            x5_cbgps_wts = mean(x5_cbgps_wts),
+            x5_npcbgps_wts = mean(x5_npcbgps_wts),
+            x5_olr_wts = mean(x5_olr_wts),
+            x6_ols_wts = mean(x6_ols_wts),
+            x6_cbgps_wts = mean(x6_cbgps_wts),
+            x6_npcbgps_wts = mean(x6_npcbgps_wts),
+            x6_olr_wts = mean(x6_olr_wts))
 
 # have to get mean (min, max) of weights from different exposure scenarios
 tab2 <- tibble(Method = c("Ordinary least squares",
                           "Covariate balancing generalized propensity score",
+                          "Non-parametric covariate balancing generalized propensity score",
                           "Quantile binning categories",
                           "10",
                           "15",
@@ -824,6 +1164,9 @@ tab2 <- tibble(Method = c("Ordinary least squares",
                                      paste0(round(mean(mean_wts$x1_cbgps_wts), 2), " (",
                                             round(min(mean_wts$x1_cbgps_wts), 2), ", ",
                                             round(max(mean_wts$x1_cbgps_wts), 2), ")"),
+                                     paste0(round(mean(mean_wts$x1_npcbgps_wts), 2), " (",
+                                            round(min(mean_wts$x1_npcbgps_wts), 2), ", ",
+                                            round(max(mean_wts$x1_npcbgps_wts), 2), ")"),
                                      NA,
                                      paste0(round(mean(mean_wts$x1_qb10_wts), 2), " (",
                                             round(min(mean_wts$x1_qb10_wts), 2), ", ",
@@ -843,6 +1186,9 @@ tab2 <- tibble(Method = c("Ordinary least squares",
                                      paste0(round(mean(mean_wts$x2_cbgps_wts), 2), " (",
                                             round(min(mean_wts$x2_cbgps_wts), 2), ", ",
                                             round(max(mean_wts$x2_cbgps_wts), 2), ")"),
+                                     paste0(round(mean(mean_wts$x2_npcbgps_wts), 2), " (",
+                                            round(min(mean_wts$x2_npcbgps_wts), 2), ", ",
+                                            round(max(mean_wts$x2_npcbgps_wts), 2), ")"),
                                      NA,
                                      paste0(round(mean(mean_wts$x2_qb10_wts), 2), " (",
                                             round(min(mean_wts$x2_qb10_wts), 2), ", ",
@@ -862,6 +1208,9 @@ tab2 <- tibble(Method = c("Ordinary least squares",
                                      paste0(round(mean(mean_wts$x3_cbgps_wts), 2), " (",
                                             round(min(mean_wts$x3_cbgps_wts), 2), ", ",
                                             round(max(mean_wts$x3_cbgps_wts), 2), ")"),
+                                     paste0(round(mean(mean_wts$x3_npcbgps_wts), 2), " (",
+                                            round(min(mean_wts$x3_npcbgps_wts), 2), ", ",
+                                            round(max(mean_wts$x3_npcbgps_wts), 2), ")"),
                                      NA,
                                      paste0(round(mean(mean_wts$x3_qb10_wts), 2), " (",
                                             round(min(mean_wts$x3_qb10_wts), 2), ", ",
@@ -874,39 +1223,56 @@ tab2 <- tibble(Method = c("Ordinary least squares",
                                             round(max(mean_wts$x3_qb20_wts), 2), ")"),
                                      paste0(round(mean(mean_wts$x3_olr_wts), 2), " (",
                                             round(min(mean_wts$x3_olr_wts), 2), ", ",
-                                            round(max(mean_wts$x3_olr_wts), 2), ")"))#,
-               # `Mean (min, max)   ` = c(paste0(round(mean(df$x4_ols_wts), 2), " (",
-               #                              round(min(df$x4_ols_wts), 2), ", ",
-               #                              round(max(df$x4_ols_wts), 2), ")"),
-               #                       paste0(round(mean(df$x4_cbgps_wts), 2), " (",
-               #                              round(min(df$x4_cbgps_wts), 2), ", ",
-               #                              round(max(df$x4_cbgps_wts), 2), ")"),
-               #                       NA,
-               #                       paste0(round(mean(df$x4_qb10_wts), 2), " (",
-               #                              round(min(df$x4_qb10_wts), 2), ", ",
-               #                              round(max(df$x4_qb10_wts), 2), ")"),
-               #                       paste0(round(mean(df$x4_qb15_wts), 2), " (",
-               #                              round(min(df$x4_qb15_wts), 2), ", ",
-               #                              round(max(df$x4_qb15_wts), 2), ")"),
-               #                       paste0(round(mean(df$x4_qb20_wts), 2), " (",
-               #                              round(min(df$x4_qb20_wts), 2), ", ",
-               #                              round(max(df$x4_qb20_wts), 2), ")"),
-               #                       paste0(round(mean(df$x4_olr_wts), 2), " (",
-               #                              round(min(df$x4_olr_wts), 2), ", ",
-               #                              round(max(df$x4_olr_wts), 2), ")"))
+                                            round(max(mean_wts$x3_olr_wts), 2), ")")),
+               `Mean (min, max)   ` = c(paste0(round(mean(df$x4_ols_wts), 2), " (",
+                                            round(min(df$x4_ols_wts), 2), ", ",
+                                            round(max(df$x4_ols_wts), 2), ")"),
+                                     paste0(round(mean(df$x4_cbgps_wts), 2), " (",
+                                            round(min(df$x4_cbgps_wts), 2), ", ",
+                                            round(max(df$x4_cbgps_wts), 2), ")"),
+                                     paste0(round(mean(mean_wts$x4_npcbgps_wts), 2), " (",
+                                            round(min(mean_wts$x4_npcbgps_wts), 2), ", ",
+                                            round(max(mean_wts$x4_npcbgps_wts), 2), ")"),
+                                     NA,
+                                     NA,
+                                     NA,
+                                     NA,
+                                     paste0(round(mean(df$x4_olr_wts), 2), " (",
+                                            round(min(df$x4_olr_wts), 2), ", ",
+                                            round(max(df$x4_olr_wts), 2), ")")),
+               `Mean (min, max)    ` = c(paste0(round(mean(df$x5_ols_wts), 2), " (",
+                                            round(min(df$x5_ols_wts), 2), ", ",
+                                            round(max(df$x5_ols_wts), 2), ")"),
+                                     paste0(round(mean(df$x5_cbgps_wts), 2), " (",
+                                            round(min(df$x5_cbgps_wts), 2), ", ",
+                                            round(max(df$x5_cbgps_wts), 2), ")"),
+                                     paste0(round(mean(mean_wts$x5_npcbgps_wts), 2), " (",
+                                            round(min(mean_wts$x5_npcbgps_wts), 2), ", ",
+                                            round(max(mean_wts$x5_npcbgps_wts), 2), ")"),
+                                     NA,
+                                     NA,
+                                     NA,
+                                     NA,
+                                     paste0(round(mean(df$x5_olr_wts), 2), " (",
+                                            round(min(df$x5_olr_wts), 2), ", ",
+                                            round(max(df$x5_olr_wts), 2), ")")),
+               `Mean (min, max)     ` = c(paste0(round(mean(df$x6_ols_wts), 2), " (",
+                                            round(min(df$x6_ols_wts), 2), ", ",
+                                            round(max(df$x6_ols_wts), 2), ")"),
+                                     paste0(round(mean(df$x6_cbgps_wts), 2), " (",
+                                            round(min(df$x6_cbgps_wts), 2), ", ",
+                                            round(max(df$x6_cbgps_wts), 2), ")"),
+                                     paste0(round(mean(mean_wts$x6_npcbgps_wts), 2), " (",
+                                            round(min(mean_wts$x6_npcbgps_wts), 2), ", ",
+                                            round(max(mean_wts$x6_npcbgps_wts), 2), ")"),
+                                     NA,
+                                     NA,
+                                     NA,
+                                     NA,
+                                     paste0(round(mean(df$x6_olr_wts), 2), " (",
+                                            round(min(df$x6_olr_wts), 2), ", ",
+                                            round(max(df$x6_olr_wts), 2), ")"))
                ) 
-
-# # table 2
-# kable(tab2) %>%
-#   kable_classic(html_font = "Arial", full_width = FALSE) %>%
-#   add_header_above(c("", "X1" = 1, "X2" = 1, "X3" = 1), bold = TRUE) %>%
-#   add_header_above(c("Marginally", "Normal" = 1, "Non-Normal" = 1,
-#                      "Non-Normal" = 1), bold = TRUE) %>%
-#   add_header_above(c("Conditionally", "Normal" = 1, "Normal" = 1,
-#                      "Non-Normal" = 1), bold = TRUE) %>%
-#   # add_header_above(c("Expsoure Transformation", "None" = 3,
-#   #                    "log(X + 0.001)" = 1), bold = TRUE) %>%
-#   add_indent(c(4:6))
 ```
 
 ## Covariate Balance
@@ -924,30 +1290,50 @@ covbal_func <- function(data){
   x2_formula <- formula(x2 ~ mage_g + page + mage_g*page + parity2 + parity3 + parity4 + parity5)
   x3_formula <- formula(x3 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
   x4_formula <- formula(x4 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
+  x5_formula <- formula(x6 ~ mage_g + page + mage_g*page + parity2 + parity3 + parity4 + parity5)
+  x6_formula <- formula(x6 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
   
   # now calculate balance
   bal_tab_x1 <- bal.tab(x1_formula, data = data, 
         weights = list(OLS = "x1_ols_wts",
                        CBGPS = "x1_cbgps_wts",
+                       NPCGPS = "x1_npcbgps_wts",
                        CPM = "x1_olr_wts"), 
         stats = c("c"), 
         un = TRUE, thresholds = c(cor = .1))
   bal_tab_x2 <- bal.tab(x2_formula, data = data, 
         weights = list(OLS = "x2_ols_wts",
                        CBGPS = "x2_cbgps_wts",
+                       NPCGPS = "x2_npcbgps_wts",
                        CPM = "x2_olr_wts"), 
         stats = c("c"), 
         un = TRUE, thresholds = c(cor = .1))
   bal_tab_x3 <- bal.tab(x3_formula, data = data, 
         weights = list(OLS = "x3_ols_wts",
                        CBGPS = "x3_cbgps_wts",
+                       NPCGPS = "x3_npcbgps_wts",
                        CPM = "x3_olr_wts"), 
         stats = c("c"), 
         un = TRUE, thresholds = c(cor = .1))
   bal_tab_x4 <- bal.tab(x4_formula, data = data, 
         weights = list(OLS = "x4_ols_wts",
                        CBGPS = "x4_cbgps_wts",
+                       NPCGPS = "x4_npcbgps_wts",
                        CPM = "x4_olr_wts"), 
+        stats = c("c"), 
+        un = TRUE, thresholds = c(cor = .1))
+  bal_tab_x5 <- bal.tab(x5_formula, data = data, 
+        weights = list(OLS = "x5_ols_wts",
+                       CBGPS = "x5_cbgps_wts",
+                       NPCGPS = "x5_npcbgps_wts",
+                       CPM = "x5_olr_wts"), 
+        stats = c("c"), 
+        un = TRUE, thresholds = c(cor = .1))
+  bal_tab_x6 <- bal.tab(x6_formula, data = data, 
+        weights = list(OLS = "x6_ols_wts",
+                       CBGPS = "x6_cbgps_wts",
+                       NPCGPS = "x6_npcbgps_wts",
+                       CPM = "x6_olr_wts"), 
         stats = c("c"), 
         un = TRUE, thresholds = c(cor = .1))
   
@@ -957,7 +1343,6 @@ covbal_func <- function(data){
   x1_qb10form <- formula(x1_qb10 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
   x2_qb10form <- formula(x2_qb10 ~ mage_g + page + mage_g*page + parity2 + parity3 + parity4 + parity5)
   x3_qb10form <- formula(x3_qb10 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
-  x4_qb10form <- formula(x4_qb10 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
   
   bal_tab_x1_qb10 <- bal.tab(x1_qb10form, data = data, weights = "x1_qb10_wts", stats = c("c"), 
                              un = TRUE, thresholds = c(cor = .1))
@@ -965,14 +1350,11 @@ covbal_func <- function(data){
                              un = TRUE, thresholds = c(cor = .1))
   bal_tab_x3_qb10 <- bal.tab(x3_qb10form, data = data, weights = "x3_qb10_wts", stats = c("c"), 
                              un = TRUE, thresholds = c(cor = .1))
-  bal_tab_x4_qb10 <- bal.tab(x4_qb10form, data = data, weights = "x4_qb10_wts", stats = c("c"), 
-                             un = TRUE, thresholds = c(cor = .1))
   
   # qb15
   x1_qb15form <- formula(x1_qb15 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
   x2_qb15form <- formula(x2_qb15 ~ mage_g + page + mage_g*page + parity2 + parity3 + parity4 + parity5)
   x3_qb15form <- formula(x3_qb15 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
-  x4_qb15form <- formula(x4_qb15 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
   
   bal_tab_x1_qb15 <- bal.tab(x1_qb15form, data = data, weights = "x1_qb15_wts", stats = c("c"), 
                              un = TRUE, thresholds = c(cor = .1))
@@ -980,14 +1362,11 @@ covbal_func <- function(data){
                              un = TRUE, thresholds = c(cor = .1))
   bal_tab_x3_qb15 <- bal.tab(x3_qb15form, data = data, weights = "x3_qb15_wts", stats = c("c"), 
                              un = TRUE, thresholds = c(cor = .1))
-  bal_tab_x4_qb15<- bal.tab(x4_qb15form, data = data, weights = "x4_qb15_wts", stats = c("c"), 
-                            un = TRUE, thresholds = c(cor = .1))
   
   # qb20
   x1_qb20form <- formula(x1_qb20 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
   x2_qb20form <- formula(x2_qb20 ~ mage_g + page + mage_g*page + parity2 + parity3 + parity4 + parity5)
   x3_qb20form <- formula(x3_qb20 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
-  x4_qb20form <- formula(x4_qb20 ~ mage + page + mage*page + parity2 + parity3 + parity4 + parity5)
   
   bal_tab_x1_qb20 <- bal.tab(x1_qb20form, data = data, weights = "x1_qb20_wts", stats = c("c"), 
                              un = TRUE, thresholds = c(cor = .1))
@@ -995,39 +1374,57 @@ covbal_func <- function(data){
                              un = TRUE, thresholds = c(cor = .1))
   bal_tab_x3_qb20 <- bal.tab(x3_qb20form, data = data, weights = "x3_qb20_wts", stats = c("c"), 
                              un = TRUE, thresholds = c(cor = .1))
-  bal_tab_x4_qb20 <- bal.tab(x4_qb20form, data = data, weights = "x4_qb20_wts", stats = c("c"), 
-                             un = TRUE, thresholds = c(cor = .1))
   
   # now combine into output dataframe
   data_frame(i, 
              x1_uw = sum(bal_tab_x1$Balance$Corr.Un < 0.1),
              x1_ols = bal_tab_x1$Balanced.correlations[2, 1],
              x1_cbgps = bal_tab_x1$Balanced.correlations[2, 2],
+             x1_npcbgps = bal_tab_x1$Balanced.correlations[2, 3],
              x1_qb10 = bal_tab_x1_qb10$Balanced.correlations[2, 1],
              x1_qb15 = bal_tab_x1_qb15$Balanced.correlations[2, 1],
              x1_qb20 = bal_tab_x1_qb20$Balanced.correlations[2, 1],
-             x1_olr = bal_tab_x1$Balanced.correlations[2, 3], 
+             x1_olr = bal_tab_x1$Balanced.correlations[2, 4], 
              x2_uw = sum(bal_tab_x2$Balance$Corr.Un < 0.1),
              x2_ols = bal_tab_x2$Balanced.correlations[2, 1],
              x2_cbgps = bal_tab_x2$Balanced.correlations[2, 2],
+             x2_npcbgps = bal_tab_x2$Balanced.correlations[2, 3],
              x2_qb10 = bal_tab_x2_qb10$Balanced.correlations[2, 1],
              x2_qb15 = bal_tab_x2_qb15$Balanced.correlations[2, 1],
              x2_qb20 = bal_tab_x2_qb20$Balanced.correlations[2, 1],
-             x2_olr = bal_tab_x2$Balanced.correlations[2, 3], 
+             x2_olr = bal_tab_x2$Balanced.correlations[2, 4], 
              x3_uw = sum(bal_tab_x3$Balance$Corr.Un < 0.1),
              x3_ols = bal_tab_x3$Balanced.correlations[2, 1],
              x3_cbgps = bal_tab_x3$Balanced.correlations[2, 2],
+             x3_npcbgps = bal_tab_x3$Balanced.correlations[2, 3],
              x3_qb10 = bal_tab_x3_qb10$Balanced.correlations[2, 1],
              x3_qb15 = bal_tab_x3_qb15$Balanced.correlations[2, 1],
              x3_qb20 = bal_tab_x3_qb20$Balanced.correlations[2, 1],
-             x3_olr = bal_tab_x3$Balanced.correlations[2, 3], 
+             x3_olr = bal_tab_x3$Balanced.correlations[2, 4], 
              x4_uw = sum(bal_tab_x4$Balance$Corr.Un < 0.1),
              x4_ols = bal_tab_x4$Balanced.correlations[2, 1],
              x4_cbgps = bal_tab_x4$Balanced.correlations[2, 2],
-             x4_qb10 = bal_tab_x4_qb10$Balanced.correlations[2, 1],
-             x4_qb15 = bal_tab_x1_qb15$Balanced.correlations[2, 1],
-             x4_qb20 = bal_tab_x1_qb20$Balanced.correlations[2, 1],
-             x4_olr = bal_tab_x4$Balanced.correlations[2, 3])
+             x4_npcbgps = bal_tab_x4$Balanced.correlations[2, 3],
+             x4_qb10 = NA,
+             x4_qb15 = NA,
+             x4_qb20 = NA,
+             x4_olr = bal_tab_x4$Balanced.correlations[2, 4], 
+             x5_uw = sum(bal_tab_x5$Balance$Corr.Un < 0.1),
+             x5_ols = bal_tab_x5$Balanced.correlations[2, 1],
+             x5_cbgps = bal_tab_x5$Balanced.correlations[2, 2],
+             x5_npcbgps = bal_tab_x5$Balanced.correlations[2, 3],
+             x5_qb10 = NA,
+             x5_qb15 = NA,
+             x5_qb20 = NA,
+             x5_olr = bal_tab_x5$Balanced.correlations[2, 4], 
+             x6_uw = sum(bal_tab_x6$Balance$Corr.Un < 0.1),
+             x6_ols = bal_tab_x6$Balanced.correlations[2, 1],
+             x6_cbgps = bal_tab_x6$Balanced.correlations[2, 2],
+             x6_npcbgps = bal_tab_x6$Balanced.correlations[2, 3],
+             x6_qb10 = NA,
+             x6_qb15 = NA,
+             x6_qb20 = NA,
+             x6_olr = bal_tab_x6$Balanced.correlations[2, 4])
 }
 
 # # get covariate balance across all simulations
@@ -1050,6 +1447,7 @@ Load(covbal)
 covbal_tab <- tibble(Method = c("Unweighted",
                                 "Ordinary least squares",
                           "Covariate balancing generalized propensity score",
+                          "Non-parametric covariate balancing generalized propensity score",
                           "Quantile binning categories",
                           "10",
                           "15",
@@ -1064,6 +1462,9 @@ covbal_tab <- tibble(Method = c("Unweighted",
                                      paste0(round(mean(covbal$x1_cbgps), 2), " (",
                                             min(covbal$x1_cbgps), ", ",
                                             max(covbal$x1_cbgps), ")"),
+                                     paste0(round(mean(covbal$x1_npcbgps), 2), " (",
+                                            min(covbal$x1_npcbgps), ", ",
+                                            max(covbal$x1_npcbgps), ")"),
                                      NA,
                                      paste0(round(mean(covbal$x1_qb10), 2), " (",
                                             min(covbal$x1_qb10), ", ",
@@ -1086,6 +1487,9 @@ covbal_tab <- tibble(Method = c("Unweighted",
                                      paste0(round(mean(covbal$x2_cbgps), 2), " (",
                                             min(covbal$x2_cbgps), ", ",
                                             max(covbal$x2_cbgps), ")"),
+                                     paste0(round(mean(covbal$x2_npcbgps), 2), " (",
+                                            min(covbal$x2_npcbgps), ", ",
+                                            max(covbal$x2_npcbgps), ")"),
                                      NA,
                                      paste0(round(mean(covbal$x2_qb10), 2), " (",
                                             min(covbal$x2_qb10), ", ",
@@ -1108,6 +1512,9 @@ covbal_tab <- tibble(Method = c("Unweighted",
                                      paste0(round(mean(covbal$x3_cbgps), 2), " (",
                                             min(covbal$x3_cbgps), ", ",
                                             max(covbal$x3_cbgps), ")"),
+                                     paste0(round(mean(covbal$x3_npcbgps), 2), " (",
+                                            min(covbal$x3_npcbgps), ", ",
+                                            max(covbal$x3_npcbgps), ")"),
                                      NA,
                                      paste0(round(mean(covbal$x3_qb10), 2), " (",
                                             min(covbal$x3_qb10), ", ",
@@ -1120,42 +1527,68 @@ covbal_tab <- tibble(Method = c("Unweighted",
                                             max(covbal$x3_qb20), ")"),
                                      paste0(round(mean(covbal$x3_olr), 2), " (",
                                             min(covbal$x3_olr), ", ",
-                                            max(covbal$x3_olr), ")")) #,
-               # `Mean (min, max)   ` = c(paste0(round(mean(covbal$x4_ols), 2), " (",
-               #                              min(covbal$x4_ols), ", ",
-               #                              max(covbal$x4_ols), ")"),
-               #                       paste0(round(mean(covbal$x4_cbgps), 2), " (",
-               #                              min(covbal$x4_cbgps), ", ",
-               #                              max(covbal$x4_cbgps), ")"),
-               #                       NA,
-               #                       paste0(round(mean(covbal$x4_qb10), 2), " (",
-               #                              min(covbal$x4_qb10), ", ",
-               #                              max(covbal$x4_qb10), ")"),
-               #                       paste0(round(mean(covbal$x4_qb15), 2), " (",
-               #                              min(covbal$x4_qb15), ", ",
-               #                              max(covbal$x4_qb15), ")"),
-               #                       paste0(round(mean(covbal$x4_qb20), 2), " (",
-               #                              min(covbal$x4_qb20), ", ",
-               #                              max(covbal$x4_qb20), ")"),
-               #                       paste0(round(mean(covbal$x4_olr), 2), " (",
-               #                              min(covbal$x4_olr), ", ",
-               #                              max(covbal$x4_olr), ")"))
+                                            max(covbal$x3_olr), ")")),
+               `Mean (min, max)   ` = c(paste0(round(mean(covbal$x4_uw), 2), " (",
+                                            min(covbal$x4_uw), ", ",
+                                            max(covbal$x4_uw), ")"),
+                                        paste0(round(mean(covbal$x4_ols), 2), " (",
+                                            min(covbal$x4_ols), ", ",
+                                            max(covbal$x4_ols), ")"),
+                                     paste0(round(mean(covbal$x4_cbgps), 2), " (",
+                                            min(covbal$x4_cbgps), ", ",
+                                            max(covbal$x4_cbgps), ")"),
+                                     paste0(round(mean(covbal$x4_npcbgps), 2), " (",
+                                            min(covbal$x4_npcbgps), ", ",
+                                            max(covbal$x4_npcbgps), ")"),
+                                     NA,
+                                     NA,
+                                     NA,
+                                     NA,
+                                     paste0(round(mean(covbal$x4_olr), 2), " (",
+                                            min(covbal$x4_olr), ", ",
+                                            max(covbal$x4_olr), ")")),
+               `Mean (min, max)    ` = c(paste0(round(mean(covbal$x5_uw), 2), " (",
+                                            min(covbal$x5_uw), ", ",
+                                            max(covbal$x5_uw), ")"),
+                                         paste0(round(mean(covbal$x5_ols), 2), " (",
+                                            min(covbal$x5_ols), ", ",
+                                            max(covbal$x5_ols), ")"),
+                                     paste0(round(mean(covbal$x5_cbgps), 2), " (",
+                                            min(covbal$x5_cbgps), ", ",
+                                            max(covbal$x5_cbgps), ")"),
+                                     paste0(round(mean(covbal$x5_npcbgps), 2), " (",
+                                            min(covbal$x5_npcbgps), ", ",
+                                            max(covbal$x5_npcbgps), ")"),
+                                     NA,
+                                     NA,
+                                     NA,
+                                     NA,
+                                     paste0(round(mean(covbal$x5_olr), 2), " (",
+                                            min(covbal$x5_olr), ", ",
+                                            max(covbal$x5_olr), ")")),
+               `Mean (min, max)     ` = c(paste0(round(mean(covbal$x6_uw), 2), " (",
+                                            min(covbal$x6_uw), ", ",
+                                            max(covbal$x6_uw), ")"),
+                                          paste0(round(mean(covbal$x6_ols), 2), " (",
+                                            min(covbal$x6_ols), ", ",
+                                            max(covbal$x6_ols), ")"),
+                                     paste0(round(mean(covbal$x6_cbgps), 2), " (",
+                                            min(covbal$x6_cbgps), ", ",
+                                            max(covbal$x6_cbgps), ")"),
+                                     paste0(round(mean(covbal$x6_npcbgps), 2), " (",
+                                            min(covbal$x6_npcbgps), ", ",
+                                            max(covbal$x6_npcbgps), ")"),
+                                     NA,
+                                     NA,
+                                     NA,
+                                     NA,
+                                     paste0(round(mean(covbal$x6_olr), 2), " (",
+                                            min(covbal$x6_olr), ", ",
+                                            max(covbal$x6_olr), ")"))
                ) 
-# 
-# # covariate balance table
-# kable(covbal_tab) %>%
-#   kable_classic(html_font = "Arial", full_width = FALSE) %>%
-#   add_header_above(c("", "X1" = 1, "X2" = 1, "X3" = 1), bold = TRUE) %>%
-#   add_header_above(c("Marginally", "Normal" = 1, "Non-Normal" = 1,
-#                      "Non-Normal" = 1), bold = TRUE) %>%
-#   add_header_above(c("Conditionally", "Normal" = 1, "Normal" = 1,
-#                      "Non-Normal" = 1), bold = TRUE)  %>%
-#   # add_header_above(c("Expsoure Transformation", "None" = 3,
-#   #                    "log(X + 0.001)" = 1), bold = TRUE) %>%
-#   add_indent(c(5:7))
 ```
 
-## Table 1 - Inverse Probability Weight and Covariate Balance Distributions [Mean (Min, Max) Version]
+## Table 2 - Inverse Probability Weight and Covariate Balance Distributions [Mean (Min, Max) Version]
 
 ```{r fin_tab1, eval = FALSE}
 fin_tab1 <- tibble(Method = c("Unweighted",
@@ -1165,6 +1598,9 @@ fin_tab1 <- tibble(Method = c("Unweighted",
                           "Stabilized weight",
                               "Unbalanced covariates",
                           "Covariate balancing generalized propensity score",
+                          "Stabilized weight",
+                              "Unbalanced covariates",
+                          "Non-parametric covariate balancing generalized propensity score",
                           "Stabilized weight",
                               "Unbalanced covariates",
                           "Quantile binning categories",
@@ -1183,37 +1619,68 @@ fin_tab1 <- tibble(Method = c("Unweighted",
                    `Mean (min, max)` = c(NA, NA, covbal_tab[1, 2],
                                          NA, tab2[1, 2], covbal_tab[2, 2],
                                          NA, tab2[2, 2], covbal_tab[3, 2],
+                                         NA, tab2[3, 2], covbal_tab[4, 2],
                                          NA,
-                                         NA, tab2[4, 2], covbal_tab[5, 2],
                                          NA, tab2[5, 2], covbal_tab[6, 2],
                                          NA, tab2[6, 2], covbal_tab[7, 2],
-                                         NA, tab2[7, 2], covbal_tab[8, 2]),
+                                         NA, tab2[7, 2], covbal_tab[8, 2],
+                                         NA, tab2[8, 2], covbal_tab[9, 2]),
+                   `Mean (min, max)   ` = c(NA, NA, covbal_tab[1, 5],
+                                         NA, tab2[1, 5], covbal_tab[2, 5],
+                                         NA, tab2[2, 5], covbal_tab[3, 5],
+                                         NA, tab2[3, 5], covbal_tab[4, 5],
+                                         NA,
+                                         NA, tab2[5, 5], covbal_tab[6, 5],
+                                         NA, tab2[6, 5], covbal_tab[7, 5],
+                                         NA, tab2[7, 5], covbal_tab[8, 5],
+                                         NA, tab2[8, 5], covbal_tab[9, 5]),
                    `Mean (min, max) ` = c(NA, NA, covbal_tab[1, 3],
                                          NA, tab2[1, 3], covbal_tab[2, 3],
                                          NA, tab2[2, 3], covbal_tab[3, 3],
+                                         NA, tab2[3, 3], covbal_tab[4, 3],
                                          NA,
-                                         NA, tab2[4, 3], covbal_tab[5, 3],
                                          NA, tab2[5, 3], covbal_tab[6, 3],
                                          NA, tab2[6, 3], covbal_tab[7, 3],
-                                         NA, tab2[7, 3], covbal_tab[8, 3]),
+                                         NA, tab2[7, 3], covbal_tab[8, 3],
+                                         NA, tab2[8, 3], covbal_tab[9, 3]),
+                   `Mean (min, max)    `  = c(NA, NA, covbal_tab[1, 6],
+                                         NA, tab2[1, 6], covbal_tab[2, 6],
+                                         NA, tab2[2, 6], covbal_tab[3, 6],
+                                         NA, tab2[3, 6], covbal_tab[4, 6],
+                                         NA,
+                                         NA, tab2[5, 6], covbal_tab[6, 6],
+                                         NA, tab2[6, 6], covbal_tab[7, 6],
+                                         NA, tab2[7, 6], covbal_tab[8, 6],
+                                         NA, tab2[8, 6], covbal_tab[9, 6]),
                    `Mean (min, max)  ` = c(NA, NA, covbal_tab[1, 4],
                                          NA, tab2[1, 4], covbal_tab[2, 4],
                                          NA, tab2[2, 4], covbal_tab[3, 4],
+                                         NA, tab2[3, 4], covbal_tab[4, 4],
                                          NA,
-                                         NA, tab2[4, 4], covbal_tab[5, 4],
                                          NA, tab2[5, 4], covbal_tab[6, 4],
                                          NA, tab2[6, 4], covbal_tab[7, 4],
-                                         NA, tab2[7, 4], covbal_tab[8, 4]))
+                                         NA, tab2[7, 4], covbal_tab[8, 4],
+                                         NA, tab2[8, 4], covbal_tab[9, 4]),
+                   `Mean (min, max)     `  = c(NA, NA, covbal_tab[1, 7],
+                                         NA, tab2[1, 7], covbal_tab[2, 7],
+                                         NA, tab2[2, 7], covbal_tab[3, 7],
+                                         NA, tab2[3, 7], covbal_tab[4, 7],
+                                         NA,
+                                         NA, tab2[5, 7], covbal_tab[6, 7],
+                                         NA, tab2[6, 7], covbal_tab[7, 7],
+                                         NA, tab2[7, 7], covbal_tab[8, 7],
+                                         NA, tab2[8, 7], covbal_tab[9, 7]))
 
 kable(fin_tab1) %>%
   kable_classic(html_font = "Arial", full_width = FALSE) %>%
-  add_header_above(c("", "X1" = 1, "X2" = 1, "X3" = 1), bold = TRUE) %>%
-  add_header_above(c("Marginally", "Normal" = 1, "Non-Normal" = 1, 
-                     "Non-Normal" = 1), bold = TRUE) %>%
-  add_header_above(c("Conditionally", "Normal" = 1, "Normal" = 1, 
-                     "Non-Normal" = 1), bold = TRUE)  %>%
-  add_indent(c(2:3, 5:6, 8:9, 11:19, 21:22)) %>%
-  add_indent(c(2:3, 5:6, 8:9, 12:13, 15:16, 18:19, 21:22))
+  add_header_above(c("Exposure", "X1" = 1, "X4" = 1, "X2" = 1, "X5" = 1, 
+                     "X3" = 1, "X6" = 1), bold = TRUE) %>%
+  add_header_above(c("Marginally", "Normal" = 2, "Non-Normal" = 2, 
+                     "Non-Normal" = 2), bold = TRUE) %>%
+  add_header_above(c("Conditionally", "Normal" = 2, "Normal" = 2, 
+                     "Non-Normal" = 2), bold = TRUE)  %>%
+  add_indent(c(2:3, 5:6, 8:9, 11:12, 14:22, 24:25)) %>%
+  add_indent(c(2:3, 5:6, 8:9, 11:12, 15:16, 18:19, 21:22, 24:25))
 ```
 
 # Assessment of Bias
@@ -1232,6 +1699,12 @@ x2_quants <- map_dbl(seq(0.1, 0.9, 0.1), ~ quantile(df$x2, .x))
 
 x3_quants <- map_dbl(seq(0.1, 0.9, 0.1), ~ quantile(df$x3, .x))
 
+x4_quants <- map_dbl(seq(0.1, 0.9, 0.1), ~ quantile(df$x4, .x))
+
+x5_quants <- map_dbl(seq(0.1, 0.9, 0.1), ~ quantile(df$x5, .x))
+
+x6_quants <- map_dbl(seq(0.1, 0.9, 0.1), ~ quantile(df$x6, .x))
+
 # function to get list of biases via msm approach and Austin approaches
 bias_func <- function(data){
   # simulation number
@@ -1244,43 +1717,89 @@ bias_func <- function(data){
   x1_uw <- lrm(y1 ~ x1, data = data)
   x2_uw <- lrm(y2 ~ x2, data = data)
   x3_uw <- lrm(y3 ~ x3, data = data)
-  #x4_uw  <- lrm(y3 ~ x3, data = data)
+  x4_uw  <- lrm(y4 ~ x4, data = data)
+  x5_uw  <- lrm(y5 ~ x5, data = data)
+  x6_uw  <- lrm(y6 ~ x6, data = data)
   
   # ols
-  x1_ols <- lrm(y1 ~ x1, weights = x1_ols_wts, data = data)
-  x2_ols <- lrm(y2 ~ x2, weights = x2_ols_wts, data = data)
-  x3_ols <- lrm(y3 ~ x3, weights = x3_ols_wts, data = data)
-  #x4_ols <- lrm(y3 ~ x3, weights = x4_ols_wts, data = data)
+  d_ols_x1 <- svydesign(~1, weights = data$x1_ols_wts, data = data)
+  x1_ols <- svyglm(y1 ~ x1, design = d_ols_x1, family = binomial)
+  d_ols_x2 <- svydesign(~1, weights = data$x2_ols_wts, data = data)
+  x2_ols <- svyglm(y2 ~ x2, design = d_ols_x2, family = binomial)
+  d_ols_x3 <- svydesign(~1, weights = data$x3_ols_wts, data = data)
+  x3_ols <- svyglm(y3 ~ x3, design = d_ols_x3, family = binomial)
+  d_ols_x4 <- svydesign(~1, weights = data$x4_ols_wts, data = data)
+  x4_ols <- svyglm(y4 ~ x4, design = d_ols_x4, family = binomial)
+  d_ols_x5 <- svydesign(~1, weights = data$x5_ols_wts, data = data)
+  x5_ols <- svyglm(y5 ~ x5, design = d_ols_x5, family = binomial)
+  d_ols_x6 <- svydesign(~1, weights = data$x6_ols_wts, data = data)
+  x6_ols <- svyglm(y6 ~ x6, design = d_ols_x6, family = binomial)
   
   # cbgps
-  x1_cbgps <- lrm(y1 ~ x1, weights = x1_cbgps_wts, data = data)
-  x2_cbgps <- lrm(y2 ~ x2, weights = x2_cbgps_wts, data = data)
-  x3_cbgps <- lrm(y3 ~ x3, weights = x3_cbgps_wts, data = data)
-  #x4_cbgps <- lrm(y3 ~ x3, weights = x4_cbgps_wts, data = data)
+  d_cbgps_x1 <- svydesign(~1, weights = data$x1_cbgps_wts, data = data)
+  x1_cbgps <- svyglm(y1 ~ x1, design = d_cbgps_x1, family = binomial)
+  d_cbgps_x2 <- svydesign(~1, weights = data$x2_cbgps_wts, data = data)
+  x2_cbgps <- svyglm(y2 ~ x2, design = d_cbgps_x2, family = binomial)
+  d_cbgps_x3 <- svydesign(~1, weights = data$x3_cbgps_wts, data = data)
+  x3_cbgps <- svyglm(y3 ~ x3, design = d_cbgps_x3, family = binomial)
+  d_cbgps_x4 <- svydesign(~1, weights = data$x4_cbgps_wts, data = data)
+  x4_cbgps <- svyglm(y4 ~ x4, design = d_cbgps_x4, family = binomial)
+  d_cbgps_x5 <- svydesign(~1, weights = data$x5_cbgps_wts, data = data)
+  x5_cbgps <- svyglm(y5 ~ x5, design = d_cbgps_x5, family = binomial)
+  d_cbgps_x6 <- svydesign(~1, weights = data$x6_cbgps_wts, data = data)
+  x6_cbgps <- svyglm(y6 ~ x6, design = d_cbgps_x6, family = binomial)
+  
+  # npcbgps
+  d_npcbgps_x1 <- svydesign(~1, weights = data$x1_npcbgps_wts, data = data)
+  x1_npcbgps <- svyglm(y1 ~ x1, design = d_npcbgps_x1, family = binomial)
+  d_npcbgps_x2 <- svydesign(~1, weights = data$x2_npcbgps_wts, data = data)
+  x2_npcbgps <- svyglm(y2 ~ x2, design = d_npcbgps_x2, family = binomial)
+  d_npcbgps_x3 <- svydesign(~1, weights = data$x3_npcbgps_wts, data = data)
+  x3_npcbgps <- svyglm(y3 ~ x3, design = d_npcbgps_x3, family = binomial)
+  d_npcbgps_x4 <- svydesign(~1, weights = data$x4_npcbgps_wts, data = data)
+  x4_npcbgps <- svyglm(y4 ~ x4, design = d_npcbgps_x4, family = binomial)
+  d_npcbgps_x5 <- svydesign(~1, weights = data$x5_npcbgps_wts, data = data)
+  x5_npcbgps <- svyglm(y5 ~ x5, design = d_npcbgps_x5, family = binomial)
+  d_npcbgps_x6 <- svydesign(~1, weights = data$x6_npcbgps_wts, data = data)
+  x6_npcbgps <- svyglm(y6 ~ x6, design = d_npcbgps_x6, family = binomial)
   
   # qb10
-  x1_qb10 <- lrm(y1 ~ x1, weights = x1_qb10_wts, data = data)
-  x2_qb10 <- lrm(y2 ~ x2, weights = x2_qb10_wts, data = data)
-  x3_qb10 <- lrm(y3 ~ x3, weights = x3_qb10_wts, data = data)
-  #x4_qb10 <- lrm(y3 ~ x3, weights = x4_qb10_wts, data = data)
+  d_qb10_x1 <- svydesign(~1, weights = data$x1_qb10_wts, data = data)
+  x1_qb10 <- svyglm(y1 ~ x1, design = d_qb10_x1, family = binomial)
+  d_qb10_x2 <- svydesign(~1, weights = data$x2_qb10_wts, data = data)
+  x2_qb10 <- svyglm(y2 ~ x2, design = d_qb10_x2, family = binomial)
+  d_qb10_x3 <- svydesign(~1, weights = data$x3_qb10_wts, data = data)
+  x3_qb10 <- svyglm(y3 ~ x3, design = d_qb10_x3, family = binomial)
   
   # qb15
-  x1_qb15 <- lrm(y1 ~ x1, weights = x1_qb15_wts, data = data)
-  x2_qb15 <- lrm(y2 ~ x2, weights = x2_qb15_wts, data = data)
-  x3_qb15 <- lrm(y3 ~ x3, weights = x3_qb15_wts, data = data)
-  #x4_qb15 <- lrm(y3 ~ x3, weights = x4_qb15_wts, data = data)
+  d_qb15_x1 <- svydesign(~1, weights = data$x1_qb15_wts, data = data)
+  x1_qb15 <- svyglm(y1 ~ x1, design = d_qb15_x1, family = binomial)
+  d_qb15_x2 <- svydesign(~1, weights = data$x2_qb15_wts, data = data)
+  x2_qb15 <- svyglm(y2 ~ x2, design = d_qb15_x2, family = binomial)
+  d_qb15_x3 <- svydesign(~1, weights = data$x3_qb15_wts, data = data)
+  x3_qb15 <- svyglm(y3 ~ x3, design = d_qb15_x3, family = binomial)
   
   # qb20
-  x1_qb20 <- lrm(y1 ~ x1, weights = x1_qb20_wts, data = data)
-  x2_qb20 <- lrm(y2 ~ x2, weights = x2_qb20_wts, data = data)
-  x3_qb20 <- lrm(y3 ~ x3, weights = x3_qb20_wts, data = data)
-  #x4_qb20 <- lrm(y3 ~ x3, weights = x4_qb20_wts, data = data)
+  d_qb20_x1 <- svydesign(~1, weights = data$x1_qb20_wts, data = data)
+  x1_qb20 <- svyglm(y1 ~ x1, design = d_qb20_x1, family = binomial)
+  d_qb20_x2 <- svydesign(~1, weights = data$x2_qb20_wts, data = data)
+  x2_qb20 <- svyglm(y2 ~ x2, design = d_qb20_x2, family = binomial)
+  d_qb20_x3 <- svydesign(~1, weights = data$x3_qb20_wts, data = data)
+  x3_qb20 <- svyglm(y3 ~ x3, design = d_qb20_x3, family = binomial)
   
   # olr
-  x1_olr <- lrm(y1 ~ x1, weights = x1_olr_wts, data = data)
-  x2_olr <- lrm(y2 ~ x2, weights = x2_olr_wts, data = data)
-  x3_olr <- lrm(y3 ~ x3, weights = x3_olr_wts, data = data)
-  #x4_olr <- lrm(y3 ~ x3, weights = x4_olr_wts, data = data)
+  d_olr_x1 <- svydesign(~1, weights = data$x1_olr_wts, data = data)
+  x1_olr <- svyglm(y1 ~ x1, design = d_olr_x1, family = binomial)
+  d_olr_x2 <- svydesign(~1, weights = data$x2_olr_wts, data = data)
+  x2_olr <- svyglm(y2 ~ x2, design = d_olr_x2, family = binomial)
+  d_olr_x3 <- svydesign(~1, weights = data$x3_olr_wts, data = data)
+  x3_olr <- svyglm(y3 ~ x3, design = d_olr_x3, family = binomial)
+  d_olr_x4 <- svydesign(~1, weights = data$x4_olr_wts, data = data)
+  x4_olr <- svyglm(y4 ~ x4, design = d_olr_x4, family = binomial)
+  d_olr_x5 <- svydesign(~1, weights = data$x5_olr_wts, data = data)
+  x5_olr <- svyglm(y5 ~ x5, design = d_olr_x5, family = binomial)
+  d_olr_x6 <- svydesign(~1, weights = data$x6_olr_wts, data = data)
+  x6_olr <- svyglm(y6 ~ x6, design = d_olr_x6, family = binomial)
 
   # bias via the Marginal Structural Model Approach
   
@@ -1288,43 +1807,205 @@ bias_func <- function(data){
   x1_uw_bias <- true_x1 - x1_uw$coefficient[2]
   x2_uw_bias <- true_x2 - x2_uw$coefficient[2]
   x3_uw_bias <- true_x3 - x3_uw$coefficient[2]
-  #x4_uw_bias <- true_x3 - x4_ols_uw$coefficient[2]
+  x4_uw_bias <- true_x4 - x4_uw$coefficient[2]
+  x5_uw_bias <- true_x5 - x5_uw$coefficient[2]
+  x6_uw_bias <- true_x6 - x6_uw$coefficient[2]
+  
+  # unweighted se
+  x1_uw_se <- sqrt(x1_uw$var[2,2])
+  x2_uw_se <- sqrt(x2_uw$var[2,2])
+  x3_uw_se <- sqrt(x3_uw$var[2,2])
+  x4_uw_se <- sqrt(x4_uw$var[2,2])
+  x5_uw_se <- sqrt(x5_uw$var[2,2])
+  x6_uw_se <- sqrt(x6_uw$var[2,2])
+  
+  # unweighted coverage
+  x1_uw_cov <- (true_x1 > (x1_uw$coefficient[2] - (1.96 * x1_uw_se))) & 
+    (true_x1 < (x1_uw$coefficient[2] + (1.96 * x1_uw_se)))
+  x2_uw_cov <- (true_x2 > (x2_uw$coefficient[2] - (1.96 * x2_uw_se))) & 
+    (true_x2 < (x2_uw$coefficient[2] + (1.96 * x2_uw_se)))
+  x3_uw_cov <- (true_x3 > (x3_uw$coefficient[2] - (1.96 * x3_uw_se))) & 
+    (true_x3 < (x3_uw$coefficient[2] + (1.96 * x3_uw_se)))
+  x4_uw_cov <- (true_x4 > (x4_uw$coefficient[2] - (1.96 * x4_uw_se))) & 
+    (true_x4 < (x4_uw$coefficient[2] + (1.96 * x4_uw_se)))
+  x5_uw_cov <- (true_x5 > (x5_uw$coefficient[2] - (1.96 * x5_uw_se))) & 
+    (true_x5 < (x5_uw$coefficient[2] + (1.96 * x5_uw_se)))
+  x6_uw_cov <- (true_x6 > (x6_uw$coefficient[2] - (1.96 * x6_uw_se))) & 
+    (true_x6 < (x6_uw$coefficient[2] + (1.96 * x6_uw_se)))
   
   # ols
   x1_ols_bias <- true_x1 - x1_ols$coefficient[2]
   x2_ols_bias <- true_x2 - x2_ols$coefficient[2]
   x3_ols_bias <- true_x3 - x3_ols$coefficient[2]
-  #x4_ols_bias <- true_x3 - x4_ols$coefficient[2]
+  x4_ols_bias <- true_x4 - x4_ols$coefficient[2]
+  x5_ols_bias <- true_x5 - x5_ols$coefficient[2]
+  x6_ols_bias <- true_x6 - x6_ols$coefficient[2]
+  
+  # ols se
+  x1_ols_se <- sqrt(x1_ols$cov.unscaled[2,2])
+  x2_ols_se <- sqrt(x2_ols$cov.unscaled[2,2])
+  x3_ols_se <- sqrt(x3_ols$cov.unscaled[2,2])
+  x4_ols_se <- sqrt(x4_ols$cov.unscaled[2,2])
+  x5_ols_se <- sqrt(x5_ols$cov.unscaled[2,2])
+  x6_ols_se <- sqrt(x6_ols$cov.unscaled[2,2])
+  
+  # ols coverage
+  x1_ols_cov <- (true_x1 > (x1_ols$coefficient[2] - (1.96 * x1_ols_se))) & 
+    (true_x1 < (x1_ols$coefficient[2] + (1.96 * x1_ols_se)))
+  x2_ols_cov <- (true_x2 > (x2_ols$coefficient[2] - (1.96 * x2_ols_se))) & 
+    (true_x2 < (x2_ols$coefficient[2] + (1.96 * x2_ols_se)))
+  x3_ols_cov <- (true_x3 > (x3_ols$coefficient[2] - (1.96 * x3_ols_se))) & 
+    (true_x3 < (x3_ols$coefficient[2] + (1.96 * x3_ols_se)))
+  x4_ols_cov <- (true_x4 > (x4_ols$coefficient[2] - (1.96 * x4_ols_se))) & 
+    (true_x4 < (x4_ols$coefficient[2] + (1.96 * x4_ols_se)))
+  x5_ols_cov <- (true_x5 > (x5_ols$coefficient[2] - (1.96 * x5_ols_se))) & 
+    (true_x5 < (x5_ols$coefficient[2] + (1.96 * x5_ols_se)))
+  x6_ols_cov <- (true_x6 > (x6_ols$coefficient[2] - (1.96 * x6_ols_se))) & 
+    (true_x6 < (x6_ols$coefficient[2] + (1.96 * x6_ols_se)))
   
   # cbgps
   x1_cbgps_bias <- true_x1 - x1_cbgps$coefficient[2]
   x2_cbgps_bias <- true_x2 - x2_cbgps$coefficient[2]
   x3_cbgps_bias <- true_x3 - x3_cbgps$coefficient[2]
-  #x4_cbgps_bias <- true_x3 - x4_cbgps$coefficient[2]
+  x4_cbgps_bias <- true_x4 - x4_cbgps$coefficient[2]
+  x5_cbgps_bias <- true_x5 - x5_cbgps$coefficient[2]
+  x6_cbgps_bias <- true_x6 - x6_cbgps$coefficient[2]
+  
+  # cbgps se
+  x1_cbgps_se <- sqrt(x1_cbgps$cov.unscaled[2,2])
+  x2_cbgps_se <- sqrt(x2_cbgps$cov.unscaled[2,2])
+  x3_cbgps_se <- sqrt(x3_cbgps$cov.unscaled[2,2])
+  x4_cbgps_se <- sqrt(x4_cbgps$cov.unscaled[2,2])
+  x5_cbgps_se <- sqrt(x5_cbgps$cov.unscaled[2,2])
+  x6_cbgps_se <- sqrt(x6_cbgps$cov.unscaled[2,2])
+  
+  # cbgps coverage
+  x1_cbgps_cov <- (true_x1 > (x1_cbgps$coefficient[2] - (1.96 * x1_cbgps_se))) & 
+    (true_x1 < (x1_cbgps$coefficient[2] + (1.96 * x1_cbgps_se)))
+  x2_cbgps_cov <- (true_x2 > (x2_cbgps$coefficient[2] - (1.96 * x2_cbgps_se))) & 
+    (true_x2 < (x2_cbgps$coefficient[2] + (1.96 * x2_cbgps_se)))
+  x3_cbgps_cov <- (true_x3 > (x3_cbgps$coefficient[2] - (1.96 * x3_cbgps_se))) & 
+    (true_x3 < (x3_cbgps$coefficient[2] + (1.96 * x3_cbgps_se)))
+  x4_cbgps_cov <- (true_x4 > (x4_cbgps$coefficient[2] - (1.96 * x4_cbgps_se))) & 
+    (true_x4 < (x4_cbgps$coefficient[2] + (1.96 * x4_cbgps_se)))
+  x5_cbgps_cov <- (true_x5 > (x5_cbgps$coefficient[2] - (1.96 * x5_cbgps_se))) & 
+    (true_x5 < (x5_cbgps$coefficient[2] + (1.96 * x5_cbgps_se)))
+  x6_cbgps_cov <- (true_x6 > (x6_cbgps$coefficient[2] - (1.96 * x6_cbgps_se))) & 
+    (true_x6 < (x6_cbgps$coefficient[2] + (1.96 * x6_cbgps_se)))
+  
+  # npcbgps
+  x1_npcbgps_bias <- true_x1 - x1_npcbgps$coefficient[2]
+  x2_npcbgps_bias <- true_x2 - x2_npcbgps$coefficient[2]
+  x3_npcbgps_bias <- true_x3 - x3_npcbgps$coefficient[2]
+  x4_npcbgps_bias <- true_x4 - x4_npcbgps$coefficient[2]
+  x5_npcbgps_bias <- true_x5 - x5_npcbgps$coefficient[2]
+  x6_npcbgps_bias <- true_x6 - x6_npcbgps$coefficient[2]
+  
+  # npcbgps se
+  x1_npcbgps_se <- sqrt(x1_npcbgps$cov.unscaled[2,2])
+  x2_npcbgps_se <- sqrt(x2_npcbgps$cov.unscaled[2,2])
+  x3_npcbgps_se <- sqrt(x3_npcbgps$cov.unscaled[2,2])
+  x4_npcbgps_se <- sqrt(x4_npcbgps$cov.unscaled[2,2])
+  x5_npcbgps_se <- sqrt(x5_npcbgps$cov.unscaled[2,2])
+  x6_npcbgps_se <- sqrt(x6_npcbgps$cov.unscaled[2,2])
+  
+  # npcbgps coverage
+  x1_npcbgps_cov <- (true_x1 > (x1_npcbgps$coefficient[2] - (1.96 * x1_npcbgps_se))) & 
+    (true_x1 < (x1_npcbgps$coefficient[2] + (1.96 * x1_npcbgps_se)))
+  x2_npcbgps_cov <- (true_x2 > (x2_npcbgps$coefficient[2] - (1.96 * x2_npcbgps_se))) & 
+    (true_x2 < (x2_npcbgps$coefficient[2] + (1.96 * x2_npcbgps_se)))
+  x3_npcbgps_cov <- (true_x3 > (x3_npcbgps$coefficient[2] - (1.96 * x3_npcbgps_se))) & 
+    (true_x3 < (x3_npcbgps$coefficient[2] + (1.96 * x3_npcbgps_se)))
+  x4_npcbgps_cov <- (true_x4 > (x4_npcbgps$coefficient[2] - (1.96 * x4_npcbgps_se))) & 
+    (true_x4 < (x4_npcbgps$coefficient[2] + (1.96 * x4_npcbgps_se)))
+  x5_npcbgps_cov <- (true_x5 > (x5_npcbgps$coefficient[2] - (1.96 * x5_npcbgps_se))) & 
+    (true_x5 < (x5_npcbgps$coefficient[2] + (1.96 * x5_npcbgps_se)))
+  x6_npcbgps_cov <- (true_x6 > (x6_npcbgps$coefficient[2] - (1.96 * x6_npcbgps_se))) & 
+    (true_x6 < (x6_npcbgps$coefficient[2] + (1.96 * x6_npcbgps_se)))
   
   # qb10
   x1_qb10_bias <- true_x1 - x1_qb10$coefficient[2]
   x2_qb10_bias <- true_x2 - x2_qb10$coefficient[2]
   x3_qb10_bias <- true_x3 - x3_qb10$coefficient[2]
-  #x4_qb10_bias <- true_x3 - x4_qb10$coefficient[2]
+  
+  # qb10 se
+  x1_qb10_se <- sqrt(x1_qb10$cov.unscaled[2,2])
+  x2_qb10_se <- sqrt(x2_qb10$cov.unscaled[2,2])
+  x3_qb10_se <- sqrt(x3_qb10$cov.unscaled[2,2])
+  
+  # qb10 coverage
+  x1_qb10_cov <- (true_x1 > (x1_qb10$coefficient[2] - (1.96 * x1_qb10_se))) & 
+    (true_x1 < (x1_qb10$coefficient[2] + (1.96 * x1_qb10_se)))
+  x2_qb10_cov <- (true_x2 > (x2_qb10$coefficient[2] - (1.96 * x2_qb10_se))) & 
+    (true_x2 < (x2_qb10$coefficient[2] + (1.96 * x2_qb10_se)))
+  x3_qb10_cov <- (true_x3 > (x3_qb10$coefficient[2] - (1.96 * x3_qb10_se))) & 
+    (true_x3 < (x3_qb10$coefficient[2] + (1.96 * x3_qb10_se)))
   
   # qb15
   x1_qb15_bias <- true_x1 - x1_qb15$coefficient[2]
   x2_qb15_bias <- true_x2 - x2_qb15$coefficient[2]
   x3_qb15_bias <- true_x3 - x3_qb15$coefficient[2]
-  #x4_qb15_bias <- true_x3 - x4_qb15$coefficient[2]
+  
+  #qb15 se
+  x1_qb15_se <- sqrt(x1_qb15$cov.unscaled[2,2])
+  x2_qb15_se <- sqrt(x2_qb15$cov.unscaled[2,2])
+  x3_qb15_se <- sqrt(x3_qb15$cov.unscaled[2,2])
+  
+  #_qb15 coverage
+  x1_qb15_cov <- (true_x1 > (x1_qb15$coefficient[2] - (1.96 * x1_qb15_se))) & 
+    (true_x1 < (x1_qb15$coefficient[2] + (1.96 * x1_qb15_se)))
+  x2_qb15_cov <- (true_x2 > (x2_qb15$coefficient[2] - (1.96 * x2_qb15_se))) & 
+    (true_x2 < (x2_qb15$coefficient[2] + (1.96 * x2_qb15_se)))
+  x3_qb15_cov <- (true_x3 > (x3_qb15$coefficient[2] - (1.96 * x3_qb15_se))) & 
+    (true_x3 < (x3_qb15$coefficient[2] + (1.96 * x3_qb15_se)))
   
   # qb20
   x1_qb20_bias <- true_x1 - x1_qb20$coefficient[2]
   x2_qb20_bias <- true_x2 - x2_qb20$coefficient[2]
   x3_qb20_bias <- true_x3 - x3_qb20$coefficient[2]
-  #x4_qb20_bias <- true_x3 - x4_qb20$coefficient[2]
+  
+  #qb20 se
+  x1_qb20_se <- sqrt(x1_qb20$cov.unscaled[2,2])
+  x2_qb20_se <- sqrt(x2_qb20$cov.unscaled[2,2])
+  x3_qb20_se <- sqrt(x3_qb20$cov.unscaled[2,2])
+  
+  #_qb20 coverage
+  x1_qb20_cov <- (true_x1 > (x1_qb20$coefficient[2] - (1.96 * x1_qb20_se))) & 
+    (true_x1 < (x1_qb20$coefficient[2] + (1.96 * x1_qb20_se)))
+  x2_qb20_cov <- (true_x2 > (x2_qb20$coefficient[2] - (1.96 * x2_qb20_se))) & 
+    (true_x2 < (x2_qb20$coefficient[2] + (1.96 * x2_qb20_se)))
+  x3_qb20_cov <- (true_x3 > (x3_qb20$coefficient[2] - (1.96 * x3_qb20_se))) & 
+    (true_x3 < (x3_qb20$coefficient[2] + (1.96 * x3_qb20_se)))
   
   # olr
   x1_olr_bias <- true_x1 - x1_olr$coefficient[2]
   x2_olr_bias <- true_x2 - x2_olr$coefficient[2]
   x3_olr_bias <- true_x3 - x3_olr$coefficient[2]
-  #x4_olr_bias <- true_x3 - x4_olr$coefficient[2]
+  x4_olr_bias <- true_x4 - x4_olr$coefficient[2]
+  x5_olr_bias <- true_x5 - x5_olr$coefficient[2]
+  x6_olr_bias <- true_x6 - x6_olr$coefficient[2]
+  
+  # olr se
+  x1_olr_se <- sqrt(x1_olr$cov.unscaled[2,2])
+  x2_olr_se <- sqrt(x2_olr$cov.unscaled[2,2])
+  x3_olr_se <- sqrt(x3_olr$cov.unscaled[2,2])
+  x4_olr_se <- sqrt(x4_olr$cov.unscaled[2,2])
+  x5_olr_se <- sqrt(x5_olr$cov.unscaled[2,2])
+  x6_olr_se <- sqrt(x6_olr$cov.unscaled[2,2])
+  
+  # olr coverage
+  x1_olr_cov <- (true_x1 > (x1_olr$coefficient[2] - (1.96 * x1_olr_se))) & 
+    (true_x1 < (x1_olr$coefficient[2] + (1.96 * x1_olr_se)))
+  x2_olr_cov <- (true_x2 > (x2_olr$coefficient[2] - (1.96 * x2_olr_se))) & 
+    (true_x2 < (x2_olr$coefficient[2] + (1.96 * x2_olr_se)))
+  x3_olr_cov <- (true_x3 > (x3_olr$coefficient[2] - (1.96 * x3_olr_se))) & 
+    (true_x3 < (x3_olr$coefficient[2] + (1.96 * x3_olr_se)))
+  x4_olr_cov <- (true_x4 > (x4_olr$coefficient[2] - (1.96 * x4_olr_se))) & 
+    (true_x4 < (x4_olr$coefficient[2] + (1.96 * x4_olr_se)))
+  x5_olr_cov <- (true_x5 > (x5_olr$coefficient[2] - (1.96 * x5_olr_se))) & 
+    (true_x5 < (x5_olr$coefficient[2] + (1.96 * x5_olr_se)))
+  x6_olr_cov <- (true_x6 > (x6_olr$coefficient[2] - (1.96 * x6_olr_se))) & 
+    (true_x6 < (x6_olr$coefficient[2] + (1.96 * x6_olr_se)))
 
   # bias via the Austin, 2018 approach
   
@@ -1343,10 +2024,18 @@ bias_func <- function(data){
                    ~ predict(x3_uw,
                              newdata = .x,
                              type = "fitted"))
-  # x4_uw_qs <- map_dbl(x3_quants,
-  #                  ~ predict(x4_uw, # only change here because only difference in weights, not exposure
-  #                            newdata = .x,
-  #                            type = "fitted"))
+  x4_uw_qs <- map_dbl(x4_quants,
+                   ~ predict(x4_uw,
+                             newdata = .x,
+                             type = "fitted"))
+  x5_uw_qs <- map_dbl(x5_quants,
+                   ~ predict(x5_uw,
+                             newdata = .x,
+                             type = "fitted"))
+  x6_uw_qs <- map_dbl(x6_quants,
+                   ~ predict(x6_uw,
+                             newdata = .x,
+                             type = "fitted"))
   
   # x1
   x1_uw_bias2 <- true2_x1_qs - x1_uw_qs
@@ -1358,25 +2047,33 @@ bias_func <- function(data){
   x3_uw_bias2 <- true2_x3_qs - x3_uw_qs
   
   # x4
-  # x4_uw_bias2 <- true2_x3_qs - x4_uw_qs # truth is the same as x3 with different weighting
+  x4_uw_bias2 <- true2_x4_qs - x4_uw_qs
   
-  # ols
-  x1_ols_qs <- map_dbl(x1_quants,
-                   ~ predict(x1_ols,
-                             newdata = .x,
-                             type = "fitted"))
-  x2_ols_qs <- map_dbl(x2_quants,
-                   ~ predict(x2_ols,
-                             newdata = .x,
-                             type = "fitted"))
-  x3_ols_qs <- map_dbl(x3_quants,
-                   ~ predict(x3_ols,
-                             newdata = .x,
-                             type = "fitted"))
-  # x4_ols_qs <- map_dbl(x3_quants,
-  #                  ~ predict(x4_ols, # only change here because only difference in weights, not exposure
-  #                            newdata = .x,
-  #                            type = "fitted"))
+  # x5
+  x5_uw_bias2 <- true2_x5_qs - x5_uw_qs
+  
+  # x6
+  x6_uw_bias2 <- true2_x6_qs - x6_uw_qs
+
+    # ols
+  x1_ols_qs <- data.frame(predict(x1_ols,
+                                  newdata = data.frame(x1 = x1_quants),
+                                  type = "response"))$response
+  x2_ols_qs <- data.frame(predict(x2_ols,
+                                  newdata = data.frame(x2 = x2_quants),
+                                  type = "response"))$response
+  x3_ols_qs <- data.frame(predict(x3_ols,
+                                  newdata = data.frame(x3 = x3_quants),
+                                  type = "response"))$response
+  x4_ols_qs <- data.frame(predict(x4_ols,
+                                  newdata = data.frame(x4 = x4_quants),
+                                  type = "response"))$response
+  x5_ols_qs <- data.frame(predict(x5_ols,
+                                  newdata = data.frame(x5 = x5_quants),
+                                  type = "response"))$response
+  x6_ols_qs <- data.frame(predict(x6_ols,
+                                  newdata = data.frame(x6 = x6_quants),
+                                  type = "response"))$response
   
   # x1
   x1_ols_bias2 <- true2_x1_qs - x1_ols_qs
@@ -1388,25 +2085,33 @@ bias_func <- function(data){
   x3_ols_bias2 <- true2_x3_qs - x3_ols_qs
   
   # x4
-  # x4_ols_bias2 <- true2_x3_qs - x4_ols_qs # truth is the same as x3 with different weighting
+  x4_ols_bias2 <- true2_x4_qs - x4_ols_qs
+  
+  # x5
+  x5_ols_bias2 <- true2_x5_qs - x5_ols_qs
+  
+  # x6
+  x6_ols_bias2 <- true2_x6_qs - x6_ols_qs
   
   # cbgps
-  x1_cbgps_qs <- map_dbl(x1_quants,
-                   ~ predict(x1_cbgps,
-                             newdata = .x,
-                             type = "fitted"))
-  x2_cbgps_qs <- map_dbl(x2_quants,
-                   ~ predict(x2_cbgps,
-                             newdata = .x,
-                             type = "fitted"))
-  x3_cbgps_qs <- map_dbl(x3_quants,
-                   ~ predict(x3_cbgps,
-                             newdata = .x,
-                             type = "fitted"))
-  # x4_cbgps_qs <- map_dbl(x3_quants,
-  #                  ~ predict(x4_cbgps, # only change here because only difference in weights, not exposure
-  #                            newdata = .x,
-  #                            type = "fitted"))
+  x1_cbgps_qs <- data.frame(predict(x1_cbgps,
+                                  newdata = data.frame(x1 = x1_quants),
+                                  type = "response"))$response
+  x2_cbgps_qs <- data.frame(predict(x2_cbgps,
+                                  newdata = data.frame(x2 = x2_quants),
+                                  type = "response"))$response
+  x3_cbgps_qs <- data.frame(predict(x3_cbgps,
+                                  newdata = data.frame(x3 = x3_quants),
+                                  type = "response"))$response
+  x4_cbgps_qs <- data.frame(predict(x4_cbgps,
+                                  newdata = data.frame(x4 = x4_quants),
+                                  type = "response"))$response
+  x5_cbgps_qs <- data.frame(predict(x5_cbgps,
+                                  newdata = data.frame(x5 = x5_quants),
+                                  type = "response"))$response
+  x6_cbgps_qs <- data.frame(predict(x6_cbgps,
+                                  newdata = data.frame(x6 = x6_quants),
+                                  type = "response"))$response
   
   # x1
   x1_cbgps_bias2 <- true2_x1_qs - x1_cbgps_qs
@@ -1418,26 +2123,62 @@ bias_func <- function(data){
   x3_cbgps_bias2 <- true2_x3_qs - x3_cbgps_qs
   
   # x4
-  #x4_cbgps_bias2 <- true2_x3_qs - x4_cbgps_qs # truth is the same as x3 with different weighting
+  x4_cbgps_bias2 <- true2_x4_qs - x4_cbgps_qs
+  
+  # x5
+  x5_cbgps_bias2 <- true2_x5_qs - x5_cbgps_qs
+  
+  # x6
+  x6_cbgps_bias2 <- true2_x6_qs - x6_cbgps_qs
+  
+  # npcbgps
+  x1_npcbgps_qs <- data.frame(predict(x1_npcbgps,
+                                  newdata = data.frame(x1 = x1_quants),
+                                  type = "response"))$response
+  x2_npcbgps_qs <- data.frame(predict(x2_npcbgps,
+                                  newdata = data.frame(x2 = x2_quants),
+                                  type = "response"))$response
+  x3_npcbgps_qs <- data.frame(predict(x3_npcbgps,
+                                  newdata = data.frame(x3 = x3_quants),
+                                  type = "response"))$response
+  x4_npcbgps_qs <- data.frame(predict(x4_npcbgps,
+                                  newdata = data.frame(x4 = x4_quants),
+                                  type = "response"))$response
+  x5_npcbgps_qs <- data.frame(predict(x5_npcbgps,
+                                  newdata = data.frame(x5 = x5_quants),
+                                  type = "response"))$response
+  x6_npcbgps_qs <- data.frame(predict(x6_npcbgps,
+                                  newdata = data.frame(x6 = x6_quants),
+                                  type = "response"))$response
+  
+  # x1
+  x1_npcbgps_bias2 <- true2_x1_qs - x1_npcbgps_qs
+  
+  # x2
+  x2_npcbgps_bias2 <- true2_x2_qs - x2_npcbgps_qs
+  
+  # x3
+  x3_npcbgps_bias2 <- true2_x3_qs - x3_npcbgps_qs
+  
+  # x4
+  x4_npcbgps_bias2 <- true2_x4_qs - x4_npcbgps_qs
+  
+  # x5
+  x5_npcbgps_bias2 <- true2_x5_qs - x5_npcbgps_qs
+  
+  # x6
+  x6_npcbgps_bias2 <- true2_x6_qs - x6_npcbgps_qs
   
   # qb10
-  x1_qb10_qs <- map_dbl(x1_quants,
-                   ~ predict(x1_qb10,
-                             newdata = .x,
-                             type = "fitted"))
-  x2_qb10_qs <- map_dbl(x2_quants,
-                   ~ predict(x2_qb10,
-                             newdata = .x,
-                             type = "fitted"))
-  x3_qb10_qs <- map_dbl(x3_quants,
-                   ~ predict(x3_qb10,
-                             newdata = .x,
-                             type = "fitted"))
-  # x4_qb10_qs <- map_dbl(x3_quants,
-  #                  ~ predict(x4_qb10, # only change here because only difference in weights, not exposure
-  #                            newdata = .x,
-  #                            type = "fitted"))
-  
+  x1_qb10_qs <- data.frame(predict(x1_qb10,
+                                  newdata = data.frame(x1 = x1_quants),
+                                  type = "response"))$response
+  x2_qb10_qs <- data.frame(predict(x2_qb10,
+                                  newdata = data.frame(x2 = x2_quants),
+                                  type = "response"))$response
+  x3_qb10_qs <- data.frame(predict(x3_qb10,
+                                  newdata = data.frame(x3 = x3_quants),
+                                  type = "response"))$response
   
   # x1
   x1_qb10_bias2 <- true2_x1_qs - x1_qb10_qs
@@ -1448,26 +2189,16 @@ bias_func <- function(data){
   # x3
   x3_qb10_bias2 <- true2_x3_qs - x3_qb10_qs
   
-  # x4
-  #x4_qb10_bias2 <- true2_x3_qs - x4_qb10_qs # truth is the same as x3 with different weighting
-  
   # qb15
-  x1_qb15_qs <- map_dbl(x1_quants,
-                   ~ predict(x1_qb15,
-                             newdata = .x,
-                             type = "fitted"))
-  x2_qb15_qs <- map_dbl(x2_quants,
-                   ~ predict(x2_qb15,
-                             newdata = .x,
-                             type = "fitted"))
-  x3_qb15_qs <- map_dbl(x3_quants,
-                   ~ predict(x3_qb15,
-                             newdata = .x,
-                             type = "fitted"))
-  # x4_qb15_qs <- map_dbl(x3_quants,
-  #                  ~ predict(x4_qb15, # only change here because only difference in weights, not exposure
-  #                            newdata = .x,
-  #                            type = "fitted"))
+  x1_qb15_qs <- data.frame(predict(x1_qb15,
+                                  newdata = data.frame(x1 = x1_quants),
+                                  type = "response"))$response
+  x2_qb15_qs <- data.frame(predict(x2_qb15,
+                                  newdata = data.frame(x2 = x2_quants),
+                                  type = "response"))$response
+  x3_qb15_qs <- data.frame(predict(x3_qb15,
+                                  newdata = data.frame(x3 = x3_quants),
+                                  type = "response"))$response
   
   # x1
   x1_qb15_bias2 <- true2_x1_qs - x1_qb15_qs
@@ -1478,26 +2209,16 @@ bias_func <- function(data){
   # x3
   x3_qb15_bias2 <- true2_x3_qs - x3_qb15_qs
   
-  # x4
-  #x4_qb15_bias2 <- true2_x3_qs - x4_qb15_qs # truth is the same as x3 with different weighting
-  
   # qb20
-  x1_qb20_qs <- map_dbl(x1_quants,
-                   ~ predict(x1_qb20,
-                             newdata = .x,
-                             type = "fitted"))
-  x2_qb20_qs <- map_dbl(x2_quants,
-                   ~ predict(x2_qb20,
-                             newdata = .x,
-                             type = "fitted"))
-  x3_qb20_qs <- map_dbl(x3_quants,
-                   ~ predict(x3_qb20,
-                             newdata = .x,
-                             type = "fitted"))
-  # x4_qb20_qs <- map_dbl(x3_quants,
-  #                  ~ predict(x4_qb20, # only change here because only difference in weights, not exposure
-  #                            newdata = .x,
-  #                            type = "fitted"))
+  x1_qb20_qs <- data.frame(predict(x1_qb20,
+                                  newdata = data.frame(x1 = x1_quants),
+                                  type = "response"))$response
+  x2_qb20_qs <- data.frame(predict(x2_qb20,
+                                  newdata = data.frame(x2 = x2_quants),
+                                  type = "response"))$response
+  x3_qb20_qs <- data.frame(predict(x3_qb20,
+                                  newdata = data.frame(x3 = x3_quants),
+                                  type = "response"))$response
   
   # x1
   x1_qb20_bias2 <- true2_x1_qs - x1_qb20_qs
@@ -1508,26 +2229,25 @@ bias_func <- function(data){
   # x3
   x3_qb20_bias2 <- true2_x3_qs - x3_qb20_qs
   
-  # x4
-  #x4_qb20_bias2 <- true2_x3_qs - x4_qb20_qs # truth is the same as x3 with different weighting
-  
   # olr
-  x1_olr_qs <- map_dbl(x1_quants,
-                   ~ predict(x1_olr,
-                             newdata = .x,
-                             type = "fitted"))
-  x2_olr_qs <- map_dbl(x2_quants,
-                   ~ predict(x2_olr,
-                             newdata = .x,
-                             type = "fitted"))
-  x3_olr_qs <- map_dbl(x3_quants,
-                   ~ predict(x3_olr,
-                             newdata = .x,
-                             type = "fitted"))
-  # x4_olr_qs <- map_dbl(x3_quants,
-  #                  ~ predict(x4_olr, # only change here because only difference in weights, not exposure
-  #                            newdata = .x,
-  #                            type = "fitted"))
+  x1_olr_qs <- data.frame(predict(x1_olr,
+                                  newdata = data.frame(x1 = x1_quants),
+                                  type = "response"))$response
+  x2_olr_qs <- data.frame(predict(x2_olr,
+                                  newdata = data.frame(x2 = x2_quants),
+                                  type = "response"))$response
+  x3_olr_qs <- data.frame(predict(x3_olr,
+                                  newdata = data.frame(x3 = x3_quants),
+                                  type = "response"))$response
+  x4_olr_qs <- data.frame(predict(x4_olr,
+                                  newdata = data.frame(x4 = x4_quants),
+                                  type = "response"))$response
+  x5_olr_qs <- data.frame(predict(x5_olr,
+                                  newdata = data.frame(x5 = x5_quants),
+                                  type = "response"))$response
+  x6_olr_qs <- data.frame(predict(x6_olr,
+                                  newdata = data.frame(x6 = x6_quants),
+                                  type = "response"))$response
   
   # x1
   x1_olr_bias2 <- true2_x1_qs - x1_olr_qs
@@ -1539,31 +2259,58 @@ bias_func <- function(data){
   x3_olr_bias2 <- true2_x3_qs - x3_olr_qs
   
   # x4
-  #x4_olr_bias2 <- true2_x3_qs - x4_olr_qs # truth is the same as x3 with different weighting
+  x4_olr_bias2 <- true2_x4_qs - x4_olr_qs
   
+  # x5
+  x5_olr_bias2 <- true2_x5_qs - x5_olr_qs
+  
+  # x6
+  x6_olr_bias2 <- true2_x6_qs - x6_olr_qs
   
   # output dataframe
   bias1 <- data.frame(i,
-             x1_uw_bias, x2_uw_bias, x3_uw_bias,
-             x1_ols_bias, x2_ols_bias, x3_ols_bias,
-             x1_cbgps_bias, x2_cbgps_bias, x3_cbgps_bias, 
+             x1_uw_bias, x2_uw_bias, x3_uw_bias, x4_uw_bias, x5_uw_bias, x6_uw_bias,
+             x1_ols_bias, x2_ols_bias, x3_ols_bias, x4_ols_bias, x5_ols_bias, x6_ols_bias,
+             x1_cbgps_bias, x2_cbgps_bias, x3_cbgps_bias, x4_cbgps_bias, x5_cbgps_bias, x6_cbgps_bias,
+             x1_npcbgps_bias, x2_npcbgps_bias, x3_npcbgps_bias, x4_npcbgps_bias, x5_npcbgps_bias, x6_npcbgps_bias,
              x1_qb10_bias, x2_qb10_bias, x3_qb10_bias, 
              x1_qb15_bias, x2_qb15_bias, x3_qb15_bias,
              x1_qb20_bias, x2_qb20_bias, x3_qb20_bias,
-             x1_olr_bias, x2_olr_bias, x3_olr_bias)
+             x1_olr_bias, x2_olr_bias, x3_olr_bias, x4_olr_bias, x5_olr_bias, x6_olr_bias)
+  
+  se1 <- data.frame(i,
+             x1_uw_se, x2_uw_se, x3_uw_se, x4_uw_se, x5_uw_se, x6_uw_se,
+             x1_ols_se, x2_ols_se, x3_ols_se, x4_ols_se, x5_ols_se, x6_ols_se,
+             x1_cbgps_se, x2_cbgps_se, x3_cbgps_se, x4_cbgps_se, x5_cbgps_se, x6_cbgps_se,
+             x1_npcbgps_se, x2_npcbgps_se, x3_npcbgps_se, x4_npcbgps_se, x5_npcbgps_se, x6_npcbgps_se,
+             x1_qb10_se, x2_qb10_se, x3_qb10_se, 
+             x1_qb15_se, x2_qb15_se, x3_qb15_se,
+             x1_qb20_se, x2_qb20_se, x3_qb20_se,
+             x1_olr_se, x2_olr_se, x3_olr_se, x4_olr_se, x5_olr_se, x6_olr_se)
+  
+  cov1 <- data.frame(i,
+             x1_uw_cov, x2_uw_cov, x3_uw_cov, x4_uw_cov, x5_uw_cov, x6_uw_cov,
+             x1_ols_cov, x2_ols_cov, x3_ols_cov, x4_ols_cov, x5_ols_cov, x6_ols_cov,
+             x1_cbgps_cov, x2_cbgps_cov, x3_cbgps_cov, x4_cbgps_cov, x5_cbgps_cov, x6_cbgps_cov,
+             x1_npcbgps_cov, x2_npcbgps_cov, x3_npcbgps_cov, x4_npcbgps_cov, x5_npcbgps_cov, x6_npcbgps_cov,
+             x1_qb10_cov, x2_qb10_cov, x3_qb10_cov, 
+             x1_qb15_cov, x2_qb15_cov, x3_qb15_cov,
+             x1_qb20_cov, x2_qb20_cov, x3_qb20_cov,
+             x1_olr_cov, x2_olr_cov, x3_olr_cov, x4_olr_cov, x5_olr_cov, x6_olr_cov)
   
   bias2 <- data.frame(quantile = c(1:9), 
-             x1_uw_bias2, x2_uw_bias2, x3_uw_bias2,
-             x1_ols_bias2, x2_ols_bias2, x3_ols_bias2, 
-             x1_cbgps_bias2, x2_cbgps_bias2, x3_cbgps_bias2, 
+             x1_uw_bias2, x2_uw_bias2, x3_uw_bias2, x4_uw_bias2, x5_uw_bias2, x6_uw_bias2,
+             x1_ols_bias2, x2_ols_bias2, x3_ols_bias2, x4_ols_bias2, x5_ols_bias2, x6_ols_bias2, 
+             x1_cbgps_bias2, x2_cbgps_bias2, x3_cbgps_bias2, x4_cbgps_bias2, x5_cbgps_bias2, x6_cbgps_bias2,
+             x1_npcbgps_bias2, x2_npcbgps_bias2, x3_npcbgps_bias2, x4_npcbgps_bias2, x5_npcbgps_bias2, x6_npcbgps_bias2, 
              x1_qb10_bias2, x2_qb10_bias2, x3_qb10_bias2, 
              x1_qb15_bias2, x2_qb15_bias2, x3_qb15_bias2, 
              x1_qb20_bias2, x2_qb20_bias2, x3_qb20_bias2, 
-             x1_olr_bias2, x2_olr_bias2, x3_olr_bias2) %>% 
+             x1_olr_bias2, x2_olr_bias2, x3_olr_bias2, x4_olr_bias2, x5_olr_bias2, x6_olr_bias2) %>% 
     pivot_wider(names_from = quantile,
-                values_from = x1_uw_bias2:x3_olr_bias2)
+                values_from = x1_uw_bias2:x6_olr_bias2)
   
-  data.frame(bias1, bias2)
+  data.frame(bias1, se1, cov1, bias2)
 }
 
 # # get bias across all simulations
@@ -1575,11 +2322,11 @@ bias <- future_map_dfr(sims, ~ bias_func(.x))
 Save(bias)
 ```
 
-## Decile Approach
+## Dose Reponse Decile Approach
 
 ### Supplemental Figure 1.5 - Bias at Deciles
 
-```{r austin_bias_loop, fig.width=10, fig.height=10}
+```{r austin_bias_loop, fig.width=20, fig.height=10}
 Load(bias)
 # function to plot austin bias plots
 aus_bias_plot <- function(decile) {
@@ -1591,6 +2338,7 @@ aus_bias_plot <- function(decile) {
                           levels = c(paste0("x1_uw_bias2_", decile),
                                      paste0("x1_ols_bias2_", decile),
                                      paste0("x1_cbgps_bias2_", decile),
+                                     paste0("x1_npcbgps_bias2_", decile),
                                      paste0("x1_qb10_bias2_", decile),
                                      paste0("x1_qb15_bias2_", decile),
                                      paste0("x1_qb20_bias2_", decile),
@@ -1603,6 +2351,7 @@ aus_bias_plot <- function(decile) {
                           levels = c(paste0("x2_uw_bias2_", decile),
                                      paste0("x2_ols_bias2_", decile),
                                      paste0("x2_cbgps_bias2_", decile),
+                                     paste0("x2_npcbgps_bias2_", decile),
                                      paste0("x2_qb10_bias2_", decile),
                                      paste0("x2_qb15_bias2_", decile),
                                      paste0("x2_qb20_bias2_", decile),
@@ -1615,16 +2364,47 @@ aus_bias_plot <- function(decile) {
                           levels = c(paste0("x3_uw_bias2_", decile),
                                      paste0("x3_ols_bias2_", decile),
                                      paste0("x3_cbgps_bias2_", decile),
+                                     paste0("x3_npcbgps_bias2_", decile),
                                      paste0("x3_qb10_bias2_", decile),
                                      paste0("x3_qb15_bias2_", decile),
                                      paste0("x3_qb20_bias2_", decile),
                                      paste0("x3_olr_bias2_", decile))))
   
+  x4_bias2 <- bias %>%
+    select(starts_with("x4") & contains("bias2") & ends_with(as.character(decile))) %>%
+    gather(label, bias) %>%
+    mutate(label = factor(label,
+                          levels = c(paste0("x4_uw_bias2_", decile),
+                                     paste0("x4_ols_bias2_", decile),
+                                     paste0("x4_cbgps_bias2_", decile),
+                                     paste0("x4_npcbgps_bias2_", decile),
+                                     paste0("x4_olr_bias2_", decile))))
+  
+  x5_bias2 <- bias %>%
+    select(starts_with("x5") & contains("bias2") & ends_with(as.character(decile))) %>%
+    gather(label, bias) %>%
+    mutate(label = factor(label,
+                          levels = c(paste0("x5_uw_bias2_", decile),
+                                     paste0("x5_ols_bias2_", decile),
+                                     paste0("x5_cbgps_bias2_", decile),
+                                     paste0("x5_npcbgps_bias2_", decile),
+                                     paste0("x5_olr_bias2_", decile))))
+  
+  x6_bias2 <- bias %>%
+    select(starts_with("x6") & contains("bias2") & ends_with(as.character(decile))) %>%
+    gather(label, bias) %>%
+    mutate(label = factor(label,
+                          levels = c(paste0("x6_uw_bias2_", decile),
+                                     paste0("x6_ols_bias2_", decile),
+                                     paste0("x6_cbgps_bias2_", decile),
+                                     paste0("x6_npcbgps_bias2_", decile),
+                                     paste0("x6_olr_bias2_", decile))))
+  
   # make plots
   x1_bias_plot2 <- ggplot(x1_bias2, aes(y = fct_rev(label), x = bias)) +
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
-    scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
+    scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "npCBGPS", "CBGPS", "OLS", "UW")) +
     scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
                        breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
     theme
@@ -1632,7 +2412,7 @@ aus_bias_plot <- function(decile) {
   x2_bias_plot2 <- ggplot(x2_bias2, aes(y = fct_rev(label), x = bias)) +
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
-    scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
+    scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "npCBGPS", "CBGPS", "OLS", "UW")) +
     scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
                        breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
     theme
@@ -1640,14 +2420,40 @@ aus_bias_plot <- function(decile) {
   x3_bias_plot2 <- ggplot(x3_bias2, aes(y = fct_rev(label), x = bias)) +
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
-    scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
+    scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "npCBGPS", "CBGPS", "OLS", "UW")) +
+    scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
+                       breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
+    theme
+  
+  x4_bias_plot2 <- ggplot(x4_bias2, aes(y = fct_rev(label), x = bias)) +
+    stat_halfeye() +
+    geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
+    scale_y_discrete(name = "", labels = c("CPM", "npCBGPS", "CBGPS", "OLS", "UW")) +
+    scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
+                       breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
+    theme
+  
+  x5_bias_plot2 <- ggplot(x5_bias2, aes(y = fct_rev(label), x = bias)) +
+    stat_halfeye() +
+    geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
+    scale_y_discrete(name = "", labels = c("CPM", "npCBGPS", "CBGPS", "OLS", "UW")) +
+    scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
+                       breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
+    theme
+  
+  x6_bias_plot2 <- ggplot(x6_bias2, aes(y = fct_rev(label), x = bias)) +
+    stat_halfeye() +
+    geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
+    scale_y_discrete(name = "", labels = c("CPM", "npCBGPS", "CBGPS", "OLS", "UW")) +
     scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
                        breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
     theme
 
 # combine plots
-  ggarrange(x1_bias_plot2, x2_bias_plot2, x3_bias_plot2, 
-            labels = c(paste0("A", decile), paste0("B", decile), paste0("C", decile)), 
+  ggarrange(x1_bias_plot2, x2_bias_plot2, x3_bias_plot2,
+            x4_bias_plot2, x5_bias_plot2, x6_bias_plot2,
+            labels = c(paste0("A", decile), paste0("B", decile), paste0("C", decile),
+                       paste0("D", decile), paste0("E", decile), paste0("F", decile)), 
             nrow = 1)
 }
 
@@ -1656,27 +2462,34 @@ aus_plots <- map(c(1:9), ~ aus_bias_plot(.x))
 
 # plots in chunks
 ggarrange(aus_plots[[1]], aus_plots[[2]], aus_plots[[3]], ncol = 1)
+#ggsave("./sim_png/supfig1.5_1.png")
 ggarrange(aus_plots[[4]], aus_plots[[5]], aus_plots[[6]], ncol = 1)
+#ggsave("./sim_png/supfig1.5_2.png")
 ggarrange(aus_plots[[7]], aus_plots[[8]], aus_plots[[9]], ncol = 1)
+#ggsave("./sim_png/supfig1.5_3.png")
 ```
 
 Figure legend: Column A) Homoscedastic Exposure, Conditionally Normal, Marginally Normal, Column B) Homoscedastic Exposure, Conditionally Normal, Marginally Non-Normal, Column C) Heteroscedastic Exposure, Conditionally Non-Normal, Marginally Non-Normal. The number next to each panel represents the decile, such that "A1" is the 1st decile of the Homoscedastic, Conditionally Normal, Marginally Normal Exposure.
 
-### Figure 2 - Mean Squared Error at Deciles
+### Supplemental Figure 1.6 - Mean Squared Error at Deciles
 
-```{r fig5, fig.width=4, fig.height=6, eval = FALSE}
+```{r fig5, fig.width=7, fig.height=6}
 # calculate mse for each scenario
 austin_mse <- expand_grid(Decile = c(1:9),
                           Method = c("UW",
                                      "OLS",
                                      "CBGPS",
+                                     "npCBGPS",
                                      "QB10",
                                      "QB15",
                                      "QB20",
-                                     "CPM"),
+                                     "OLR"),
                           Exposure = c("x1",
                                        "x2",
-                                       "x3"),
+                                       "x3",
+                                       "x4",
+                                       "x5",
+                                       "x6"),
                           MSE = NA)
 
 # now loop through and fill in cells
@@ -1688,10 +2501,42 @@ for(i in 1:nrow(austin_mse)){
   austin_mse$MSE[i] <- mean(bias[[col_name]]^2)
 }
 
+# Marginal Log Odds Ratio
+
+mlor_mse <- expand_grid(Decile = c(0),
+                          Method = c("UW",
+                                     "OLS",
+                                     "CBGPS",
+                                     "npCBGPS",
+                                     "QB10",
+                                     "QB15",
+                                     "QB20",
+                                     "OLR"),
+                          Exposure = c("x1",
+                                       "x2",
+                                       "x3",
+                                       "x4",
+                                       "x5",
+                                       "x6"),
+                          MSE = NA)
+
+# now loop through and fill in cells
+for(i in 1:nrow(mlor_mse)){
+  # create column name of bias tibble
+  col_name <- paste0(mlor_mse$Exposure[i], "_", 
+                     tolower(mlor_mse$Method[i]), "_bias")
+  mlor_mse$MSE[i] <- mean(bias[[col_name]]^2)
+}
+
+# now combine
+mse_plot <- bind_rows(austin_mse, mlor_mse) %>%
+  mutate(Method = ifelse(Method == "OLR", "CPM", Method),
+         Type = ifelse(Decile == 0, "MLOR", "Decile"))
+
 # now make plot
 
 # first update levels
-austin_mse <- austin_mse %>%
+mse_plot <- mse_plot %>%
   mutate(Decile = factor(Decile),
          Method = factor(Method, levels = c("UW",
                                             "QB10",
@@ -1699,61 +2544,32 @@ austin_mse <- austin_mse %>%
                                      "QB15",
                                      "CBGPS",
                                      "QB20",
+                                     "npCBGPS",
                                      "CPM")),
          Exposure = factor(Exposure, levels = c("x1",
                                        "x2",
-                                       "x3"))) %>%
+                                       "x3",
+                                       "x4",
+                                       "x5",
+                                       "x6"))) %>%
   mutate(name = factor(Exposure,
                        labels = c(expression(paste("A) ", X[1])),
                                   expression(paste("B) ", X[2])),
-                                  expression(paste("C) ", X[3])))))
+                                  expression(paste("C) ", X[3])),
+                                  expression(paste("D) ", X[4])),
+                                  expression(paste("E) ", X[5])),
+                                  expression(paste("F) ", X[6])))))
 
-# now create dataframe with vertical horizontal lines by facets (from MSM mse)
-# msm_mse <- tab3 %>% filter(!is.na(X1)) %>%
-#   mutate(Method = levels(austin_mse$Method)) %>%
-#   pivot_longer(cols = X1:X4, names_to = "Exposure", values_to = "MSE") %>%
-#   mutate(Exposure = tolower(Exposure)) %>%
-#   mutate(Method = factor(Method, levels = c("OLS",
-#                                      "CBGPS",
-#                                      "QB10",
-#                                      "QB15",
-#                                      "QB20",
-#                                      "CPM")),
-#          Exposure = factor(Exposure, levels = c("x1",
-#                                        "x2",
-#                                        "x3",
-#                                        "x4"))) %>%
-#   mutate(name = factor(Exposure,
-#                        labels = c(expression(paste("A. ", X[1], " - Homoscedastic, Naimi")),
-#                                   expression(paste("B. ", X[2], " - Homoscedastic, Skewed")),
-#                                   expression(paste("C. ", X[3], " - Heterocedastic, Naimi")),
-#                                   expression(paste("D. ", X[4], " - Heterocedastic, log(Naimi + 0.001)")))))
-
-# # make reference tibble to jitter points
-# point_jitter <- tibble(Method = levels(austin_mse$Method),
-#                        Jitter = round(seq(-0.15, 0.15, 0.05), 2))
-# 
-# # add to austin_mse
-# austin_mse <- left_join(austin_mse, point_jitter, by = "Method") %>%
-#   mutate(dec = as.numeric(Decile) + Jitter,
-#          Method = factor(Method, levels = c("UW",
-#                                      "OLS",
-#                                      "CBGPS",
-#                                      "QB10",
-#                                      "QB15",
-#                                      "QB20",
-#                                      "CPM")))
-  
-# now plot
-austin_mse %>%
+# fig 2
+mse_plot %>% filter(Decile != 0) %>%
   ggplot(aes(x = MSE, y = Decile)) +
   # geom_vline(data = msm_mse, 
   #            aes(xintercept = MSE, color = Method),
   #            linetype = "longdash", alpha = 0.9) +
   geom_point(aes(shape = Method, color = Method), size = 1) +
-  facet_wrap(~name, ncol = 1, labeller = "label_parsed", scales = "free_x") +
+  facet_wrap(~name, ncol = 3, labeller = "label_parsed", scales = "free_x") +
   scale_color_grey(guide = guide_legend(nrow = 2)) +
-  scale_shape_manual(values = 1:nlevels(austin_mse$Method)) +
+  scale_shape_manual(values = 1:nlevels(mse_plot$Method)) +
   #scale_y_continuous(name = "Decile", breaks = 1:9) + # if you'd like to jitter things
   theme +
   theme(panel.grid.major.y = element_line(),
@@ -1765,16 +2581,14 @@ austin_mse %>%
         strip.background = element_blank())
 
 # save plot
-ggsave("figs/fig2.pdf", width = 4, height = 6)
-# embed the font
-embed_fonts("figs/fig2.pdf")
+#ggsave("./sim_png/supfig1.6.png")
 ```
 
 ## Marginal Log Odds Ratio Approach
 
-### Figure 3 - Marginal Log Odds Ratio Approach Bias
+### Figure 2 - Marginal Log Odds Ratio Approach Bias
 
-```{r fig4, fig.width=4, fig.height=6, eval = FALSE}
+```{r fig2_fin, fig.width=6, fig.height=6, eval = FALSE}
 # make df of x1:4 biases
 x1_bias <- bias %>%
   select(starts_with("x1") & ends_with("bias")) %>%
@@ -1783,6 +2597,7 @@ x1_bias <- bias %>%
                         levels = c("x1_uw_bias",
                                    "x1_ols_bias",
                                    "x1_cbgps_bias",
+                                   "x1_npcbgps_bias",
                                    "x1_qb10_bias",
                                    "x1_qb15_bias",
                                    "x1_qb20_bias",
@@ -1797,6 +2612,7 @@ x2_bias <- bias %>%
                         levels = c("x2_uw_bias",
                                    "x2_ols_bias",
                                    "x2_cbgps_bias",
+                                   "x2_npcbgps_bias",
                                    "x2_qb10_bias",
                                    "x2_qb15_bias",
                                    "x2_qb20_bias",
@@ -1811,6 +2627,7 @@ x3_bias <- bias %>%
                         levels = c("x3_uw_bias",
                                    "x3_ols_bias",
                                    "x3_cbgps_bias",
+                                   "x3_npcbgps_bias",
                                    "x3_qb10_bias",
                                    "x3_qb15_bias",
                                    "x3_qb20_bias",
@@ -1818,12 +2635,49 @@ x3_bias <- bias %>%
          facet = str_sub(label, 1, 2),
          lab = str_sub(label, 4))
 
+x4_bias <- bias %>%
+  select(starts_with("x4") & ends_with("bias")) %>%
+  gather(label, bias) %>%
+  mutate(label = factor(label,
+                        levels = c("x4_uw_bias",
+                                   "x4_ols_bias",
+                                   "x4_cbgps_bias",
+                                   "x4_npcbgps_bias",
+                                   "x4_olr_bias")),
+         facet = str_sub(label, 1, 2),
+         lab = str_sub(label, 4))
+
+x5_bias <- bias %>%
+  select(starts_with("x5") & ends_with("bias")) %>%
+  gather(label, bias) %>%
+  mutate(label = factor(label,
+                        levels = c("x5_uw_bias",
+                                   "x5_ols_bias",
+                                   "x5_cbgps_bias",
+                                   "x5_npcbgps_bias",
+                                   "x5_olr_bias")),
+         facet = str_sub(label, 1, 2),
+         lab = str_sub(label, 4))
+
+x6_bias <- bias %>%
+  select(starts_with("x6") & ends_with("bias")) %>%
+  gather(label, bias) %>%
+  mutate(label = factor(label,
+                        levels = c("x6_uw_bias",
+                                   "x6_ols_bias",
+                                   "x6_cbgps_bias",
+                                   "x6_npcbgps_bias",
+                                   "x6_olr_bias")),
+         facet = str_sub(label, 1, 2),
+         lab = str_sub(label, 4))
+
 # combine into one dataset so can make facet plot
-mse_bias_plot <- bind_rows(x1_bias, x2_bias, x3_bias) %>%
-  mutate(facet = factor(facet, levels = c("x1", "x2", "x3")),
+mse_bias_plot <- bind_rows(x1_bias, x2_bias, x3_bias, x4_bias, x5_bias, x6_bias) %>%
+  mutate(facet = factor(facet, levels = c("x1", "x2", "x3", "x4", "x5", "x6")),
          lab = factor(lab,levels = c("uw_bias",
                                    "ols_bias",
                                    "cbgps_bias",
+                                   "npcbgps_bias",
                                    "qb10_bias",
                                    "qb15_bias",
                                    "qb20_bias",
@@ -1831,89 +2685,279 @@ mse_bias_plot <- bind_rows(x1_bias, x2_bias, x3_bias) %>%
   mutate(name = factor(facet,
                        labels = c(expression(paste("A) ", X[1])),
                                   expression(paste("B) ", X[2])),
-                                  expression(paste("C) ", X[3])))))
+                                  expression(paste("C) ", X[3])),
+                                  expression(paste("D) ", X[4])),
+                                  expression(paste("E) ", X[5])),
+                                  expression(paste("F) ", X[6])))))
 
-# plot
-mse_bias_plot %>%
-  ggplot(aes(y = fct_rev(lab), x = bias)) +
-  stat_halfeye() +
-  geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
-  facet_wrap(~name, ncol = 1, labeller = "label_parsed", scales = "free_x") +
-  scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "CBGPS", "OLS", "UW")) +
-  scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
-                     breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
-  theme +
-  theme(panel.grid.major.y = element_line(),
-        axis.text = element_text(size = 8),
-        axis.title = element_text(size = 9),
-        legend.title = element_text(size = 9),
-        legend.text = element_text(size = 8),
-        strip.text = element_text(hjust = 0, size = 10),
-        strip.background = element_blank())
+# now plot with both austin and molr mse...
+fig2_func <- function(exp_num, letter) {
   
+  if(exp_num < 4) {
+    mse_bias_plot %>% filter(facet == paste0("x", exp_num)) %>%
+      ggplot(aes(y = fct_rev(lab), x = bias)) +
+      stat_halfeye() +
+      geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
+      scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "npCBGPS", "CBGPS", "OLS", "UW"),) +
+      scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
+                      breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
+      annotate(geom = "text", x = 0.2, y = 9, label = "MSE", size = 10 / .pt) +
+      annotate(geom = "text", x = 0.2, y = 8.5, label = mlor_mse %>% 
+                filter(Exposure == paste0("x", exp_num) & Method == "UW") %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
+      annotate(geom = "text", x = 0.2, y = 7.5, label = mlor_mse %>% 
+                filter(Exposure == paste0("x", exp_num) & Method == "OLS") %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
+      annotate(geom = "text", x = 0.2, y = 6.5, label = mlor_mse %>% 
+                filter(Exposure == paste0("x", exp_num) & Method == "CBGPS") %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
+      annotate(geom = "text", x = 0.2, y = 5.5, label = mlor_mse %>% 
+                filter(Exposure == paste0("x", exp_num) & Method == "npCBGPS") %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
+      annotate(geom = "text", x = 0.2, y = 4.5, label = mlor_mse %>% 
+                filter(Exposure == paste0("x", exp_num) & Method == "QB10") %>% 
+                pull(MSE) %>% round(4), size = 9 / .pt) +
+      annotate(geom = "text", x = 0.2, y = 3.5, label = mlor_mse %>% 
+                filter(Exposure == paste0("x", exp_num) & Method == "QB15") %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
+      annotate(geom = "text", x = 0.2, y = 2.5, label = mlor_mse %>% 
+                filter(Exposure == paste0("x", exp_num) & Method == "QB20") %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
+      annotate(geom = "text", x = 0.2, y = 1.5, label = mlor_mse %>% 
+                filter(Exposure == paste0("x", exp_num) & Method == "OLR") %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
+      ggtitle(bquote(.(letter) * ") " ~ X[.(exp_num)])) +
+      coord_cartesian(clip = "off") +
+      theme +
+      theme(panel.grid.major.y = element_line(),
+            axis.text = element_text(size = 8),
+            axis.title = element_text(size = 9),
+            legend.position = "none")
+  } else {
+    mse_bias_plot %>% filter(facet == paste0("x", exp_num)) %>%
+      ggplot(aes(y = fct_rev(lab), x = bias)) +
+      stat_halfeye() +
+      geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
+      scale_y_discrete(name = "", labels = c("CPM", "npCBGPS", "CBGPS", "OLS", "UW")) +
+      scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
+                      breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
+      annotate(geom = "text", x = 0.2, y = 6, label = "MSE", size = 10 / .pt) +
+     annotate(geom = "text", x = 0.2, y = 5.5, label = mlor_mse %>% 
+                 filter(Exposure == paste0("x", exp_num) & Method == "UW") %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
+      annotate(geom = "text", x = 0.2, y = 4.5, label = mlor_mse %>% 
+                filter(Exposure == paste0("x", exp_num) & Method == "OLS") %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
+      annotate(geom = "text", x = 0.2, y = 3.5, label = mlor_mse %>% 
+                filter(Exposure == paste0("x", exp_num) & Method == "CBGPS") %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
+      annotate(geom = "text", x = 0.2, y = 2.5, label = mlor_mse %>% 
+                filter(Exposure == paste0("x", exp_num) & Method == "npCBGPS") %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
+      annotate(geom = "text", x = 0.2, y = 1.5, label = mlor_mse %>% 
+                filter(Exposure == paste0("x", exp_num) & Method == "OLR") %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
+      ggtitle(bquote(.(letter) * ") " ~ X[.(exp_num)])) +
+      coord_cartesian(clip = "off") +
+      theme +
+      theme(panel.grid.major.y = element_line(),
+            axis.text = element_text(size = 8),
+            axis.title = element_text(size = 9),
+            legend.position = "none")
+  }
+}
+
+ggarrange(fig2_func(1, "A"),
+          fig2_func(2, "B"),
+          fig2_func(3, "C"),
+          fig2_func(4, "D"),
+          fig2_func(5, "E"),
+          fig2_func(6, "F"),
+          ncol = 3,
+          nrow = 2,
+          heights = c(8, 5),
+          align= "hv")
 
 # save plot
-ggsave("figs/fig3.pdf", width = 4, height = 6)
+ggsave("figs/fig2.pdf", width = 7, height = 7)
 # embed the font
-embed_fonts("figs/fig3.pdf")
+embed_fonts("figs/fig2.pdf")
 ```
 
 ### Mean Squared Error
 
-## Table 2 - Marginal Log Odds Ratio Approach Mean Squared Error
+## Table 3 - Marginal Log Odds Ratio Approach Standard Error Ratio and Coverage
 
 ```{r tab3, eval = FALSE}
 # now make table of mean squared error, which is the mean of the squared biases (or errors)
 tab3 <- tibble(Method = c("Unweighted",
+                            "Standard Error Ratio",
+                            "Coverage",
                           "Ordinary least squares",
+                            "Standard Error Ratio",
+                            "Coverage",
                           "Covariate balancing generalized propensity score",
+                            "Standard Error Ratio",
+                            "Coverage",
+                          "Non-parametric covariate balancing generalized propensity score",
+                            "Standard Error Ratio",
+                            "Coverage",
                           "Quantile binning categories",
                           "10",
+                            "Standard Error Ratio",
+                            "Coverage",
                           "15",
+                            "Standard Error Ratio",
+                            "Coverage",
                           "20",
-                          "Ordinal logistic regression"),
-               `X1` = c(mean(bias$x1_uw_bias^2), 
-                        mean(bias$x1_ols_bias^2),
-                        mean(bias$x1_cbgps_bias^2),
+                            "Standard Error Ratio",
+                            "Coverage",
+                          "Ordinal logistic regression",
+                            "Standard Error Ratio",
+                            "Coverage"),
+               `X1` = c(NA, 
+                        mean(bias$x1_uw_se) / sd(true_x1 - bias$x1_uw_bias),
+                        mean(bias$x1_uw_cov),
+                        NA, 
+                        mean(bias$x1_ols_se) / sd(true_x1 - bias$x1_ols_bias),
+                        mean(bias$x1_ols_cov),
+                        NA,  
+                        mean(bias$x1_cbgps_se) / sd(true_x1 - bias$x1_cbgps_bias),
+                        mean(bias$x1_cbgps_cov),
+                        NA, 
+                        mean(bias$x1_npcbgps_se) / sd(true_x1 - bias$x1_npcbgps_bias),
+                        mean(bias$x1_npcbgps_cov),
                         NA,
-                        mean(bias$x1_qb10_bias^2),
-                        mean(bias$x1_qb15_bias^2),
-                        mean(bias$x1_qb20_bias^2),
-                        mean(bias$x1_olr_bias^2)),
-               `X2` = c(mean(bias$x2_uw_bias^2), 
-                        mean(bias$x2_ols_bias^2),
-                        mean(bias$x2_cbgps_bias^2),
+                        NA, 
+                        mean(bias$x1_qb10_se) / sd(true_x1 - bias$x1_qb10_bias),
+                        mean(bias$x1_qb10_cov),
+                        NA, 
+                        mean(bias$x1_qb15_se) / sd(true_x1 - bias$x1_qb15_bias),
+                        mean(bias$x1_qb15_cov),
+                        NA, 
+                        mean(bias$x1_qb20_se) / sd(true_x1 - bias$x1_qb20_bias),
+                        mean(bias$x1_qb20_cov),
+                        NA,  
+                        mean(bias$x1_olr_se) / sd(true_x1 - bias$x1_olr_bias),
+                        mean(bias$x1_olr_cov)),
+               `X4` = c(NA,  
+                        mean(bias$x4_uw_se) / sd(true_x4 - bias$x4_uw_bias),
+                        mean(bias$x4_uw_cov),
+                        NA, 
+                        mean(bias$x4_ols_se) / sd(true_x4 - bias$x4_ols_bias),
+                        mean(bias$x4_ols_cov),
+                        NA,  
+                        mean(bias$x4_cbgps_se) / sd(true_x4 - bias$x4_cbgps_bias),
+                        mean(bias$x4_cbgps_cov),
+                        NA,  
+                        mean(bias$x4_npcbgps_se) / sd(true_x4 - bias$x4_npcbgps_bias),
+                        mean(bias$x4_npcbgps_cov),
                         NA,
-                        mean(bias$x2_qb10_bias^2),
-                        mean(bias$x2_qb15_bias^2),
-                        mean(bias$x2_qb20_bias^2),
-                        mean(bias$x2_olr_bias^2)),
-               `X3` = c(mean(bias$x3_uw_bias^2), 
-                        mean(bias$x3_ols_bias^2),
-                        mean(bias$x3_cbgps_bias^2),
+                        NA, NA, NA,
+                        NA, NA, NA,
+                        NA, NA, NA,
+                        NA,  
+                        mean(bias$x4_olr_se) / sd(true_x4 - bias$x4_olr_bias),
+                        mean(bias$x4_olr_cov)),
+               `X2` = c(NA, 
+                        mean(bias$x2_uw_se) / sd(true_x2 - bias$x2_uw_bias),
+                        mean(bias$x2_uw_cov),
+                        NA, 
+                        mean(bias$x2_ols_se) / sd(true_x2 - bias$x2_ols_bias),
+                        mean(bias$x2_ols_cov),
+                        NA,  
+                        mean(bias$x2_cbgps_se) / sd(true_x2 - bias$x2_cbgps_bias),
+                        mean(bias$x2_cbgps_cov),
+                        NA, 
+                        mean(bias$x2_npcbgps_se) / sd(true_x2 - bias$x2_npcbgps_bias),
+                        mean(bias$x2_npcbgps_cov),
                         NA,
-                        mean(bias$x3_qb10_bias^2),
-                        mean(bias$x3_qb15_bias^2),
-                        mean(bias$x3_qb20_bias^2),
-                        mean(bias$x3_olr_bias^2))#,
-               # `X4` = c(mean(bias$x4_uw_bias^2), 
-                #        mean(bias$x4_ols_bias^2),
-               #                     mean(bias$x4_cbgps_bias^2),
-               #                     NA,
-               #                     mean(bias$x4_qb10_bias^2),
-               #                     mean(bias$x4_qb15_bias^2),
-               #                     mean(bias$x4_qb20_bias^2),
-               #                     mean(bias$x4_olr_bias^2))
+                        NA, 
+                        mean(bias$x2_qb10_se) / sd(true_x2 - bias$x2_qb10_bias),
+                        mean(bias$x2_qb10_cov),
+                        NA, 
+                        mean(bias$x2_qb15_se) / sd(true_x2 - bias$x2_qb15_bias),
+                        mean(bias$x2_qb15_cov),
+                        NA, 
+                        mean(bias$x2_qb20_se) / sd(true_x2 - bias$x2_qb20_bias),
+                        mean(bias$x2_qb20_cov),
+                        NA,  
+                        mean(bias$x2_olr_se) / sd(true_x2 - bias$x2_olr_bias),
+                        mean(bias$x2_olr_cov)),
+               `X5` = c(NA,  
+                        mean(bias$x5_uw_se) / sd(true_x5 - bias$x5_uw_bias),
+                        mean(bias$x5_uw_cov),
+                        NA, 
+                        mean(bias$x5_ols_se) / sd(true_x5 - bias$x5_ols_bias),
+                        mean(bias$x5_ols_cov),
+                        NA,  
+                        mean(bias$x5_cbgps_se) / sd(true_x5 - bias$x5_cbgps_bias),
+                        mean(bias$x5_cbgps_cov),
+                        NA,  
+                        mean(bias$x5_npcbgps_se) / sd(true_x5 - bias$x5_npcbgps_bias),
+                        mean(bias$x5_npcbgps_cov),
+                        NA,
+                        NA, NA, NA,
+                        NA, NA, NA,
+                        NA, NA, NA,
+                        NA,  
+                        mean(bias$x5_olr_se) / sd(true_x5 - bias$x5_olr_bias),
+                        mean(bias$x5_olr_cov)),
+               `X3` = c(NA, 
+                        mean(bias$x3_uw_se) / sd(true_x3 - bias$x3_uw_bias),
+                        mean(bias$x3_uw_cov),
+                        NA, 
+                        mean(bias$x3_ols_se) / sd(true_x3 - bias$x3_ols_bias),
+                        mean(bias$x3_ols_cov),
+                        NA,  
+                        mean(bias$x3_cbgps_se) / sd(true_x3 - bias$x3_cbgps_bias),
+                        mean(bias$x3_cbgps_cov),
+                        NA,  
+                        mean(bias$x3_npcbgps_se) / sd(true_x3 - bias$x3_npcbgps_bias),
+                        mean(bias$x3_npcbgps_cov),
+                        NA,
+                        NA, 
+                        mean(bias$x3_qb10_se) / sd(true_x3 - bias$x3_qb10_bias),
+                        mean(bias$x3_qb10_cov),
+                        NA, 
+                        mean(bias$x3_qb15_se) / sd(true_x3 - bias$x3_qb15_bias),
+                        mean(bias$x3_qb15_cov),
+                        NA, 
+                        mean(bias$x3_qb20_se) / sd(true_x3 - bias$x3_qb20_bias),
+                        mean(bias$x3_qb20_cov),
+                        NA,  
+                        mean(bias$x3_olr_se) / sd(true_x3 - bias$x3_olr_bias),
+                        mean(bias$x3_olr_cov)),
+               `X6` = c(NA,  
+                        mean(bias$x6_uw_se) / sd(true_x6 - bias$x6_uw_bias),
+                        mean(bias$x6_uw_cov),
+                        NA, 
+                        mean(bias$x6_ols_se) / sd(true_x6 - bias$x6_ols_bias),
+                        mean(bias$x6_ols_cov),
+                        NA,  
+                        mean(bias$x6_cbgps_se) / sd(true_x6 - bias$x6_cbgps_bias),
+                        mean(bias$x6_cbgps_cov),
+                        NA,  
+                        mean(bias$x6_npcbgps_se) / sd(true_x6 - bias$x6_npcbgps_bias),
+                        mean(bias$x6_npcbgps_cov),
+                        NA,
+                        NA, NA, NA,
+                        NA, NA, NA,
+                        NA, NA, NA,
+                        NA,  
+                        mean(bias$x6_olr_se) / sd(true_x6 - bias$x6_olr_bias),
+                        mean(bias$x6_olr_cov))
                )
 
 # make table
-kable(tab3, digits = 4) %>%
+kable(tab3, digits = 3) %>%
   kable_classic(html_font = "Arial", full_width = FALSE) %>%
-  add_header_above(c("Marginally", "Normal" = 1, "Non-Normal" = 1, 
-                     "Non-Normal" = 1), bold = TRUE) %>%
-  add_header_above(c("Conditionally", "Normal" = 1, "Normal" = 1, 
-                     "Non-Normal" = 1), bold = TRUE) %>%
-  add_indent(c(5:7))
+  add_header_above(c("Marginally", "Normal" = 2, "Non-Normal" = 2, 
+                     "Non-Normal" = 2), bold = TRUE) %>%
+  add_header_above(c("Conditionally", "Normal" = 2, "Normal" = 2, 
+                     "Non-Normal" = 2), bold = TRUE) %>%
+  add_indent(c(2:3, 5:6, 8:9, 11:12, 15:16, 18:19, 21:22, 24:25)) %>%
+  add_indent(c(2:3, 5:6, 8:9, 11:12, 13:22, 24:25))
 ```
 
 ### Supplemental Table 1.4 - Marginal Log Odds Ratio Approach Bias
@@ -1923,6 +2967,7 @@ kable(tab3, digits = 4) %>%
 tab4 <- tibble(Method = c("Unweighted",
                           "Ordinary least squares",
                           "Covariate balancing generalized propensity score",
+                          "Non-parametric covariate balancing generalized propensity score",
                           "Quantile binning categories",
                           "10",
                           "15",
@@ -1937,6 +2982,9 @@ tab4 <- tibble(Method = c("Unweighted",
                                      paste0(round(median(bias$x1_cbgps_bias), 4), " (",
                                             round(quantile(bias$x1_cbgps_bias, 0.25), 3), ", ",
                                             round(quantile(bias$x1_cbgps_bias, 0.75), 3), ")"),
+                                     paste0(round(median(bias$x1_npcbgps_bias), 4), " (",
+                                            round(quantile(bias$x1_npcbgps_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x1_npcbgps_bias, 0.75), 3), ")"),
                                      NA,
                                      paste0(round(median(bias$x1_qb10_bias), 4), " (",
                                             round(quantile(bias$x1_qb10_bias, 0.25), 3), ", ",
@@ -1950,6 +2998,25 @@ tab4 <- tibble(Method = c("Unweighted",
                                      paste0(round(median(bias$x1_olr_bias), 4), " (",
                                             round(quantile(bias$x1_olr_bias, 0.25), 3), ", ",
                                             round(quantile(bias$x1_olr_bias, 0.75), 3), ")")),
+               `Median Bias (IQR)   ` = c(paste0(round(median(bias$x4_uw_bias), 4), " (",
+                                            round(quantile(bias$x4_uw_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x4_uw_bias, 0.75), 3), ")"),
+                                       paste0(round(median(bias$x4_ols_bias), 4), " (",
+                                            round(quantile(bias$x4_ols_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x4_ols_bias, 0.75), 3), ")"),
+                                     paste0(round(median(bias$x4_cbgps_bias), 4), " (",
+                                            round(quantile(bias$x4_cbgps_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x4_cbgps_bias, 0.75), 3), ")"),
+                                     paste0(round(median(bias$x4_npcbgps_bias), 4), " (",
+                                            round(quantile(bias$x4_npcbgps_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x4_npcbgps_bias, 0.75), 3), ")"),
+                                     NA,
+                                     NA,
+                                     NA,
+                                     NA,
+                                     paste0(round(median(bias$x4_olr_bias), 4), " (",
+                                            round(quantile(bias$x4_olr_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x4_olr_bias, 0.75), 3), ")")),
                `Median Bias (IQR) ` = c(paste0(round(median(bias$x2_uw_bias), 4), " (",
                                             round(quantile(bias$x2_uw_bias, 0.25), 3), ", ",
                                             round(quantile(bias$x2_uw_bias, 0.75), 3), ")"),
@@ -1959,6 +3026,9 @@ tab4 <- tibble(Method = c("Unweighted",
                                      paste0(round(median(bias$x2_cbgps_bias), 4), " (",
                                             round(quantile(bias$x2_cbgps_bias, 0.25), 3), ", ",
                                             round(quantile(bias$x2_cbgps_bias, 0.75), 3), ")"),
+                                     paste0(round(median(bias$x2_npcbgps_bias), 4), " (",
+                                            round(quantile(bias$x2_npcbgps_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x2_npcbgps_bias, 0.75), 3), ")"),
                                      NA,
                                      paste0(round(median(bias$x2_qb10_bias), 4), " (",
                                             round(quantile(bias$x2_qb10_bias, 0.25), 3), ", ",
@@ -1972,6 +3042,25 @@ tab4 <- tibble(Method = c("Unweighted",
                                      paste0(round(median(bias$x2_olr_bias), 4), " (",
                                             round(quantile(bias$x2_olr_bias, 0.25), 3), ", ",
                                             round(quantile(bias$x2_olr_bias, 0.75), 3), ")")),
+               `Median Bias (IQR)    ` = c(paste0(round(median(bias$x5_uw_bias), 4), " (",
+                                            round(quantile(bias$x5_uw_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x5_uw_bias, 0.75), 3), ")"),
+                                       paste0(round(median(bias$x5_ols_bias), 4), " (",
+                                            round(quantile(bias$x5_ols_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x5_ols_bias, 0.75), 3), ")"),
+                                     paste0(round(median(bias$x5_cbgps_bias), 4), " (",
+                                            round(quantile(bias$x5_cbgps_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x5_cbgps_bias, 0.75), 3), ")"),
+                                     paste0(round(median(bias$x5_npcbgps_bias), 4), " (",
+                                            round(quantile(bias$x5_npcbgps_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x5_npcbgps_bias, 0.75), 3), ")"),
+                                     NA,
+                                     NA,
+                                     NA,
+                                     NA,
+                                     paste0(round(median(bias$x5_olr_bias), 4), " (",
+                                            round(quantile(bias$x5_olr_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x5_olr_bias, 0.75), 3), ")")),
                `Median Bias (IQR)  ` = c(paste0(round(median(bias$x3_uw_bias), 4), " (",
                                             round(quantile(bias$x3_uw_bias, 0.25), 3), ", ",
                                             round(quantile(bias$x3_uw_bias, 0.75), 3), ")"),
@@ -1981,6 +3070,9 @@ tab4 <- tibble(Method = c("Unweighted",
                                      paste0(round(median(bias$x3_cbgps_bias), 4), " (",
                                             round(quantile(bias$x3_cbgps_bias, 0.25), 3), ", ",
                                             round(quantile(bias$x3_cbgps_bias, 0.75), 3), ")"),
+                                     paste0(round(median(bias$x3_npcbgps_bias), 4), " (",
+                                            round(quantile(bias$x3_npcbgps_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x3_npcbgps_bias, 0.75), 3), ")"),
                                      NA,
                                      paste0(round(median(bias$x3_qb10_bias), 4), " (",
                                             round(quantile(bias$x3_qb10_bias, 0.25), 3), ", ",
@@ -1993,42 +3085,38 @@ tab4 <- tibble(Method = c("Unweighted",
                                             round(quantile(bias$x3_qb20_bias, 0.75), 3), ")"),
                                      paste0(round(median(bias$x3_olr_bias), 4), " (",
                                             round(quantile(bias$x3_olr_bias, 0.25), 3), ", ",
-                                            round(quantile(bias$x3_olr_bias, 0.75), 3), ")"))#,
-               # `Median Bias (IQR)   ` = c(paste0(round(median(bias$x4_uw_bias), 4), " (",
-               #                             round(quantile(bias$x4_uw_bias, 0.25), 3), ", ",
-               #                             round(quantile(bias$x4_uw_bias, 0.75), 3), ")"),
-               #                             paste0(round(median(bias$x4_ols_bias), 4), " (",
-               #                              round(quantile(bias$x4_ols_bias, 0.25), 3), ", ",
-               #                              round(quantile(bias$x4_ols_bias, 0.75), 3), ")"),
-               #                       paste0(round(median(bias$x4_cbgps_bias), 4), " (",
-               #                              round(quantile(bias$x4_cbgps_bias, 0.25), 3), ", ",
-               #                              round(quantile(bias$x4_cbgps_bias, 0.75), 3), ")"),
-               #                       NA,
-               #                       paste0(round(median(bias$x4_qb10_bias), 4), " (",
-               #                              round(quantile(bias$x4_qb10_bias, 0.25), 3), ", ",
-               #                              round(quantile(bias$x4_qb10_bias, 0.75), 3), ")"),
-               #                       paste0(round(median(bias$x4_qb15_bias), 4), " (",
-               #                              round(quantile(bias$x4_qb15_bias, 0.25), 3), ", ",
-               #                              round(quantile(bias$x4_qb15_bias, 0.75), 3), ")"),
-               #                       paste0(round(median(bias$x4_qb20_bias), 4), " (",
-               #                              round(quantile(bias$x4_qb20_bias, 0.25), 3), ", ",
-               #                              round(quantile(bias$x4_qb20_bias, 0.75), 3), ")"),
-               #                       paste0(round(median(bias$x4_olr_bias), 4), " (",
-               #                              round(quantile(bias$x4_olr_bias, 0.25), 3), ", ",
-               #                              round(quantile(bias$x4_olr_bias, 0.75), 3), ")"))
+                                            round(quantile(bias$x3_olr_bias, 0.75), 3), ")")),
+               `Median Bias (IQR)     ` = c(paste0(round(median(bias$x6_uw_bias), 4), " (",
+                                            round(quantile(bias$x6_uw_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x6_uw_bias, 0.75), 3), ")"),
+                                       paste0(round(median(bias$x6_ols_bias), 4), " (",
+                                            round(quantile(bias$x6_ols_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x6_ols_bias, 0.75), 3), ")"),
+                                     paste0(round(median(bias$x6_cbgps_bias), 4), " (",
+                                            round(quantile(bias$x6_cbgps_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x6_cbgps_bias, 0.75), 3), ")"),
+                                     paste0(round(median(bias$x6_npcbgps_bias), 4), " (",
+                                            round(quantile(bias$x6_npcbgps_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x6_npcbgps_bias, 0.75), 3), ")"),
+                                     NA,
+                                     NA,
+                                     NA,
+                                     NA,
+                                     paste0(round(median(bias$x6_olr_bias), 4), " (",
+                                            round(quantile(bias$x6_olr_bias, 0.25), 3), ", ",
+                                            round(quantile(bias$x6_olr_bias, 0.75), 3), ")"))
                )
 
 # make table
 kable(tab4) %>%
   kable_classic(html_font = "Arial", full_width = TRUE) %>%
-  add_header_above(c("", "X1" = 1, "X2" = 1, "X3" = 1), bold = TRUE) %>%
-  add_header_above(c("Marginally", "Normal" = 1, "Non-Normal" = 1, 
-                     "Non-Normal" = 1), bold = TRUE) %>%
-  add_header_above(c("Conditionally", "Normal" = 1, "Normal" = 1, 
-                     "Non-Normal" = 1), bold = TRUE) %>%
-  # add_header_above(c("Expsoure Transformation", "None" = 3, 
-  #                    "log(X + 0.001)" = 1), bold = TRUE) %>%
-  add_indent(c(5:7))
+  add_header_above(c("", "X1" = 1, "X4" = 1, "X2" = 1, 
+                     "X5" = 1, "X3" = 1, "X6" = 1), bold = TRUE) %>%
+  add_header_above(c("Marginally", "Normal" = 2, "Non-Normal" = 2, 
+                     "Non-Normal" = 2), bold = TRUE) %>%
+  add_header_above(c("Conditionally", "Normal" = 2, "Normal" = 2, 
+                     "Non-Normal" = 2), bold = TRUE) %>%
+  add_indent(c(6:8))
 ```
 
 # Session Info
