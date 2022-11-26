@@ -1,5 +1,5 @@
 ---
-title: "Supplement 1: Simulations — Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study"
+title: "Supplement 2: Simulations — Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study"
 author: "Sack, Daniel E, Shepherd, Bryan E, Audet, Carolyn M, De Schact, Caroline, Samuels, Lauren R"
 date: "<small>Updated `r Sys.Date()` for American Journal of Epidemiology</small>"
 output:
@@ -687,7 +687,7 @@ true2_x6_qs <- map_dbl(seq(0.1, 0.9, 0.1), ~ getMeanProb(dat = df_msm_sim,
                                                          val = quantile(df_msm_sim$x6, .x), xnum = 6))
 ```
 
-### Supplemental Table 1.1 - Updated Exposure Levels
+### Supplemental Table 2.1 - Updated Exposure Levels
 
 ```{r exp_levels}
 # get number of exposure levels across simulations
@@ -707,7 +707,7 @@ kable(suptab2) %>%
   kable_classic(html_font = "Arial", full_width = FALSE)
 ```
 
-### Supplemental Table 1.2 - Dose Response Deciles
+### Supplemental Table 2.2 - Dose Response Deciles
 
 ```{r deciles}
 # create deciles quantiles for each Austin approach
@@ -737,7 +737,7 @@ kable(dec_tab) %>%
 
 # Recreating Distributions from Naimi et al.
 
-## Supplemental Table 1.3 - Simulation Descriptive Statistics
+## Supplemental Table 2.3 - Simulation Descriptive Statistics
 
 ```{r tab1}
 # recreate table 1
@@ -820,7 +820,7 @@ kable(tab1, digits = 2) %>%
   add_indent(c(5:8))
 ```
 
-## Supplemental Figure 1.1 - Continuous Exposure
+## Supplemental Figure 2.1 - Continuous Exposure
 
 ```{r fig2_cont, fig.width=8, fig.height=4, cache.lazy=FALSE}
 # now create plot
@@ -848,7 +848,7 @@ ggarrange(naimix1, naimix2,
 
 Panel A) Homoscedastic Continuous Exposure, Panel B) Heteroscedastic Continuous Exposure
 
-## Supplemental Figure 1.2 - Continuous Exposure
+## Supplemental Figure 2.2 - Continuous Exposure
 
 ```{r fig3_cont, fig.width=10, fig.height=4}
 # will run ols regression on df
@@ -897,7 +897,7 @@ ggarrange(x1_plot_n, x2_plot_n, x2_plot_n_log,
 
 # Updated Distributions
 
-## Supplemental Figure 1.3 - Maternal Age Distributions
+## Supplemental Figure 2.3 - Maternal Age Distributions
 
 ```{r fig1_ma, fig.width=6, fig.height=3, cache.lazy=FALSE}
 mage_hist <- df %>%
@@ -927,7 +927,7 @@ ggarrange(mage_hist, mage_g_hist,
 
 Supplemental Figure 3 shows the updated marginal distributions of maternal age (`mage`) and skewed maternal age (`mage_g`). Despite similar means and variances in `mage` and `mage_g`, `mage` is normally distributed whereas `mage_g` is significantly left-skewed.
 
-## Supplemental Figure 1.4 - Exposure-Covariate Correlations
+## Supplemental Figure 2.4 - Exposure-Covariate Correlations
 
 ```{r fig1, fig.width=9, fig.height=3, cache.lazy=FALSE}
 df %>%
@@ -2324,7 +2324,7 @@ Save(bias)
 
 ## Dose Reponse Decile Approach
 
-### Supplemental Figure 1.5 - Bias at Deciles
+### Supplemental Figure 2.5 - Bias at Deciles
 
 ```{r austin_bias_loop, fig.width=20, fig.height=10}
 Load(bias)
@@ -2405,55 +2405,68 @@ aus_bias_plot <- function(decile) {
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
     scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "npCBGPS", "CBGPS", "OLS", "UW")) +
-    scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
-                       breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
-    theme
+    scale_x_continuous(name = "Bias", limits = c(-0.125, 0.125), 
+                       breaks = seq(-0.1, 0.1, 0.05), labels = seq(-0.1, 0.1, 0.05)) +
+    theme +
+    theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 24))
 
   x2_bias_plot2 <- ggplot(x2_bias2, aes(y = fct_rev(label), x = bias)) +
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
     scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "npCBGPS", "CBGPS", "OLS", "UW")) +
-    scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
-                       breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
-    theme
+    scale_x_continuous(name = "Bias", limits = c(-0.125, 0.125), 
+                       breaks = seq(-0.1, 0.1, 0.05), labels = seq(-0.1, 0.1, 0.05)) +
+    theme +
+    theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 24))
 
   x3_bias_plot2 <- ggplot(x3_bias2, aes(y = fct_rev(label), x = bias)) +
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
     scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "npCBGPS", "CBGPS", "OLS", "UW")) +
-    scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
-                       breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
-    theme
+    scale_x_continuous(name = "Bias", limits = c(-0.125, 0.125), 
+                       breaks = seq(-0.1, 0.1, 0.05), labels = seq(-0.1, 0.1, 0.05)) +
+    theme +
+    theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 24))
   
   x4_bias_plot2 <- ggplot(x4_bias2, aes(y = fct_rev(label), x = bias)) +
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
     scale_y_discrete(name = "", labels = c("CPM", "npCBGPS", "CBGPS", "OLS", "UW")) +
-    scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
-                       breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
-    theme
+    scale_x_continuous(name = "Bias", limits = c(-0.125, 0.125), 
+                       breaks = seq(-0.1, 0.1, 0.05), labels = seq(-0.1, 0.1, 0.05)) +
+    theme +
+    theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 24))
   
   x5_bias_plot2 <- ggplot(x5_bias2, aes(y = fct_rev(label), x = bias)) +
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
     scale_y_discrete(name = "", labels = c("CPM", "npCBGPS", "CBGPS", "OLS", "UW")) +
-    scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
-                       breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
-    theme
+    scale_x_continuous(name = "Bias", limits = c(-0.125, 0.125), 
+                       breaks = seq(-0.1, 0.1, 0.05), labels = seq(-0.1, 0.1, 0.05)) +
+    theme +
+    theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 24))
   
   x6_bias_plot2 <- ggplot(x6_bias2, aes(y = fct_rev(label), x = bias)) +
     stat_halfeye() +
     geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
     scale_y_discrete(name = "", labels = c("CPM", "npCBGPS", "CBGPS", "OLS", "UW")) +
-    scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
-                       breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
-    theme
+    scale_x_continuous(name = "Bias", limits = c(-0.125, 0.125), 
+                       breaks = seq(-0.1, 0.1, 0.05), labels = seq(-0.1, 0.1, 0.05)) +
+    theme +
+    theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 24))
 
 # combine plots
   ggarrange(x1_bias_plot2, x2_bias_plot2, x3_bias_plot2,
             x4_bias_plot2, x5_bias_plot2, x6_bias_plot2,
             labels = c(paste0("A", decile), paste0("B", decile), paste0("C", decile),
                        paste0("D", decile), paste0("E", decile), paste0("F", decile)), 
+            font.label = list(size = 28),
             nrow = 1)
 }
 
@@ -2471,7 +2484,7 @@ ggarrange(aus_plots[[7]], aus_plots[[8]], aus_plots[[9]], ncol = 1)
 
 Figure legend: Column A) Homoscedastic Exposure, Conditionally Normal, Marginally Normal, Column B) Homoscedastic Exposure, Conditionally Normal, Marginally Non-Normal, Column C) Heteroscedastic Exposure, Conditionally Non-Normal, Marginally Non-Normal. The number next to each panel represents the decile, such that "A1" is the 1st decile of the Homoscedastic, Conditionally Normal, Marginally Normal Exposure.
 
-### Supplemental Figure 1.6 - Mean Squared Error at Deciles
+### Supplemental Figure 2.6 - Mean Squared Error at Deciles
 
 ```{r fig5, fig.width=7, fig.height=6}
 # calculate mse for each scenario
@@ -2573,11 +2586,11 @@ mse_plot %>% filter(Decile != 0) %>%
   #scale_y_continuous(name = "Decile", breaks = 1:9) + # if you'd like to jitter things
   theme +
   theme(panel.grid.major.y = element_line(),
-        axis.text = element_text(size = 8),
-        axis.title = element_text(size = 9),
-        legend.title = element_text(size = 9),
-        legend.text = element_text(size = 8),
-        strip.text = element_text(hjust = 0, size = 10),
+        axis.text = element_text(size = 12, angle = 90),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        strip.text = element_text(hjust = 0, size = 18),
         strip.background = element_blank())
 
 # save plot
@@ -2960,7 +2973,7 @@ kable(tab3, digits = 3) %>%
   add_indent(c(2:3, 5:6, 8:9, 11:12, 13:22, 24:25))
 ```
 
-### Supplemental Table 1.4 - Marginal Log Odds Ratio Approach Bias
+### Supplemental Table 2.5 - Marginal Log Odds Ratio Approach Bias
 
 ```{r tab4}
 # now make table of biases

@@ -1,5 +1,5 @@
 ---
-title: "Supplement 2: Case Study — Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study"
+title: "Supplement 3: Case Study — Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study"
 author: "Sack, Daniel E, Shepherd, Bryan E, Audet, Carolyn M, De Schact, Caroline, Samuels, Lauren R"
 date: "<small>Updated `r Sys.Date()` for American Journal of Epidemiology</small>"
 output:
@@ -87,7 +87,7 @@ data <- quant %>%
 
 Given that the intervention consisted of six couples counseling and skills sessions focused on building communication skills, nine peer support sessions (with peer couples) focused on navigating pregnancy and the postpartum period, and joint couples antenatal and postnatal HIV care, we were interested whether intervention adherence (among female and male participants separately) impacted a secondary outcome (postpartum contraceptive uptake) among female participants in the intervention arm [@audet2018].
 
-## Supplemental Figure 2.1 - Enrollment Flow Chart
+## Supplemental Figure 3.1 - Enrollment Flow Chart
 
 ```{r fig1, fig.width=8, fig.height=8}
 # create study flow chart
@@ -159,7 +159,7 @@ flow
 
 \*\*Delivery less than 1 year before Nov. 30, 2021
 
-# Supplemental Figure 2.2 - Directed Acyclic Graph
+# Supplemental Figure 3.2 - Directed Acyclic Graph
 
 To calculate each type of sIPW, we adjusted for the available minimally sufficient set of available confounding variables. These included: participant depression (continuous, measured via the Patient Health Questionaire-9)[@kroenke2001], female and male education (no education, some primary, completed primary, some secondary, completed secondary, college/higher education), participant WHO clinical stage (ordinal), participant social support (continuous, measured via adapted Berlin Social Support Scales)[@schulz2003], partner HoPS+ engagement (continuous), participant age (continuous), and participant enrollment date (continuous). As this is merely a proof-of-concept analysis, we recognize that we are likely missing other potentially important confounders such as participant fertility intentions (which is part of the minimally sufficient set of theorized covariates), which were not available at the time of this analysis. The directed acyclic graph is shown below.
 
@@ -285,7 +285,7 @@ stripplot(imp)
 bwplot(imp)
 ```
 
-# Supplemental Figure 2.3 - Covariate Balance
+# Supplemental Figure 3.3 - Covariate Balance
 
 ```{r covbal1}
 # pull in imputations
@@ -540,13 +540,32 @@ All tables are mean (min, max). The points represent the mean absolute treatment
 # create pool function that bootstraps standard errors for each imputed dataset
 
 # start with function that does resampling at cluster level instead of at individual level
+# keep all participants within each cluster
+# relabel clusters so there are the same number of clusters at the orginal dataset
 resample_cluster <- function(df, clus_id){
   # this is specific how how the clustering is set up (as a factor of numbers)
+  # pull out all levels
   levels <- unique(df[clus_id]) %>% unlist() %>% as.character() %>% as.numeric()
-  resamp_dat <- map_df(levels, 
-                       ~ sample_n(df[df[clus_id] == .x, ],
-                                  nrow(df[df[clus_id] == .x, ]),
-                                  replace = TRUE))
+  
+  # resample levels with replacement
+  resamp_levels <- sample(levels, length(levels), replace = TRUE)
+  
+  # new cluster id
+  cluster <- c(1:length(levels))
+  
+  # create dataset with new cluster id
+  resamp_dat <- map2_df(resamp_levels, 
+                        cluster,
+                       ~ df[df[clus_id] == .x, ] %>%
+                         mutate(cluster = .y))
+  # make it a factor
+  resamp_dat <- resamp_dat %>%
+    mutate(cluster = factor(cluster))
+  
+  # replace clus_id so that it will work in the formula
+  resamp_dat[clus_id] <- resamp_dat$cluster
+  
+  # output
   resamp_dat
 }
 
@@ -633,7 +652,7 @@ pool.boot.glmer <- function(object, B) {
 ```
 
 ```{r fem_mod_boot, warning=FALSE, eval = FALSE}
-# combine imp and weights (TBD)
+# combine imp and weights
 f_imp_wts <- complete(imp, action = "long", include = TRUE)
 f_imp_wts$ols_wt <- c(rep(NA, 315), get.w(f_w_ols)) # since first 315 are the originals
 f_imp_wts$cbgps_wt <- c(rep(NA, 315), get.w(f_w_cbps)) # since first 315 are the originals
