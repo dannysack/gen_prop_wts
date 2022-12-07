@@ -930,23 +930,28 @@ Supplemental Figure 3 shows the updated marginal distributions of maternal age (
 ## Supplemental Figure 2.4 - Exposure-Covariate Correlations
 
 ```{r fig1, fig.width=9, fig.height=3, cache.lazy=FALSE}
-df %>%
-  select(mage, mage_g, x1:x6) %>%
-  pivot_longer(x1:x6) %>%
-  mutate(mage_fin = ifelse(name %in% c("x1", "x3", "x4", "x6"), mage, mage_g)) %>%
-  mutate(name = factor(name,
-                       labels = c(expression(paste("A. ", X[1], " - Homoscedastic, Naimi (0.1)")),
-                                  expression(paste("B. ", X[2], " - Homoscedastic, Skewed (0.1)")),
-                                  expression(paste("C. ", X[3], " - Heterocedastic, Naimi (0.1)")),
-                                  expression(paste("D. ", X[4], " - Homoscedastic, Naimi (1)")),
-                                  expression(paste("E. ", X[5], " - Homoscedastic, Skewed (1)")),
-                                  expression(paste("F. ", X[6], " - Heterocedastic, Naimi (1)"))))) %>%
-  ggplot(aes(x = mage_fin, y = value)) +
-  facet_wrap(~ name, labeller = "label_parsed") +
-  geom_point(alpha = 0.01) +
-  ylab("Exposure") +
-  xlab("Maternal Age (years)") +
-  theme
+supfig2_4_func <- function(exp, mage) {
+  exp <- enquo(exp)
+  mage <- enquo(mage)
+  df %>%
+    select(!!mage, !!exp) %>%
+    ggplot(aes(x = !!mage, y = !!exp)) +
+    geom_point(alpha = 0.01) +
+    ylab("Exposure") +
+    xlab("Maternal Age (years)") +
+    theme
+}
+# combine
+ggarrange(supfig2_4_func(x1, mage),
+          supfig2_4_func(x2, mage_g),
+          supfig2_4_func(x3, mage),
+          supfig2_4_func(x4, mage),
+          supfig2_4_func(x5, mage_g),
+          supfig2_4_func(x6, mage),
+          labels = c("A", "B", "C", "D", "E", "F"), 
+          nrow = 2, ncol = 3,
+          font.label = list(size = 12))
+# save plot
 #ggsave("./sim_png/supfig1.4.png")
 ```
 
@@ -2579,9 +2584,9 @@ mse_plot %>% filter(Decile != 0) %>%
   # geom_vline(data = msm_mse, 
   #            aes(xintercept = MSE, color = Method),
   #            linetype = "longdash", alpha = 0.9) +
-  geom_point(aes(shape = Method, color = Method), size = 1) +
+  geom_point(aes(shape = Method, color = Method), size = 2.5) +
   facet_wrap(~name, ncol = 3, labeller = "label_parsed", scales = "free_x") +
-  scale_color_grey(guide = guide_legend(nrow = 2)) +
+  guides(color = list(guide_legend(nrow = 2))) +
   scale_shape_manual(values = 1:nlevels(mse_plot$Method)) +
   #scale_y_continuous(name = "Decile", breaks = 1:9) + # if you'd like to jitter things
   theme +
@@ -2594,7 +2599,7 @@ mse_plot %>% filter(Decile != 0) %>%
         strip.background = element_blank())
 
 # save plot
-#ggsave("./sim_png/supfig1.6.png")
+#ggsave("./sim_png/supfig1.6.png", width = 10, height = 8)
 ```
 
 ## Marginal Log Odds Ratio Approach

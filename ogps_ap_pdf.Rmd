@@ -144,12 +144,12 @@ flow <- grViz("digraph flowchart {
 
 flow
 # export
-# flow %>% 
+# flow %>%
 #   export_svg() %>%
 #   charToRaw() %>%
-#   rsvg_pdf("fig1.pdf")
+#   rsvg_pdf("./png2_pdf/supfig3_1.pdf")
 # # embed fonts
-# embedFonts("fig1.pdf", fontpaths = "/Library/Fonts/Microsoft/Arial.ttf")
+# embedFonts("./png2_pdf/supfig3_1.pdf", fontpaths = "/Library/Fonts/Microsoft/Arial.ttf")
 
 # * indicates that individuals could share more than one reason
 # **Delivery less than 1 year before Nov. 30, 2021
@@ -386,6 +386,18 @@ for(i in 1:25) {
     bal_fem_cor[i, ] <- fem_bal_tab$Imputation.Balance[[i]]$Balanced.correlations[2, ]
 }
 
+# function to get mean of mean weights from list of weights
+mean_wts <- function(object){
+  object <- object
+  # create list of weights
+  wts <- c(rep(NA, length(object$models)))
+  # add in mean weights
+  for(i in 1:length(wts)){
+    wts[i] <- mean(object$models[[i]]$weights)
+  }
+  wts
+}
+
 # create bal_fem table for plot
 bal_fem <- tibble(Sample = c("Unadjusted",
                              "OLS",
@@ -406,18 +418,18 @@ bal_fem <- tibble(Sample = c("Unadjusted",
                                                  min(bal_fem_cor$OLR), ", ",
                                                  max(bal_fem_cor$OLR), ")")),
                   `sIPW Distribution` = c("",
-                                          paste0(round(mean(get.w(f_w_ols)), 2), " (",
-                                                 round(min(get.w(f_w_ols)), 2), ", ",
-                                                 round(max(get.w(f_w_ols)), 2), ")"),
-                                          paste0(round(mean(get.w(f_w_cbps)), 2), " (",
-                                                 round(min(get.w(f_w_cbps)), 2), ", ",
-                                                 round(max(get.w(f_w_cbps)), 2), ")"),
-                                          paste0(round(mean(get.w(f_w_npcbps)), 2), " (",
-                                                 round(min(get.w(f_w_npcbps)), 2), ", ",
-                                                 round(max(get.w(f_w_npcbps)), 2), ")"),
-                                          paste0(round(mean(unlist(f_w_olr)), 2), " (",
-                                                 round(min(unlist(f_w_olr)), 2), ", ",
-                                                 round(max(unlist(f_w_olr)), 2), ")")))
+                                          paste0(round(mean(mean_wts(f_w_ols)), 2), " (",
+                                                 round(min(mean_wts(f_w_ols)), 2), ", ",
+                                                 round(max(mean_wts(f_w_ols)), 2), ")"),
+                                          paste0(round(mean(mean_wts(f_w_cbps)), 2), " (",
+                                                 round(min(mean_wts(f_w_cbps)), 2), ", ",
+                                                 round(max(mean_wts(f_w_cbps)), 2), ")"),
+                                          paste0(round(mean(mean_wts(f_w_npcbps)), 2), " (",
+                                                 round(min(mean_wts(f_w_npcbps)), 2), ", ",
+                                                 round(max(mean_wts(f_w_npcbps)), 2), ")"),
+                                          paste0(round(mean(map_dbl(f_w_olr, ~mean(.x))), 2), " (",
+                                                 round(min(map_dbl(f_w_olr, ~mean(.x))), 2), ", ",
+                                                 round(max(map_dbl(f_w_olr, ~mean(.x))), 2), ")")))
 
 # make into grob
 fem_tab <- tableGrob(bal_fem, theme = tt_theme, rows = NULL)
@@ -490,18 +502,18 @@ bal_male <- tibble(Sample = c("Unadjusted",
                                                  min(bal_m_cor$OLR), ", ",
                                                  max(bal_m_cor$OLR), ")")),
                   `sIPW Distribution` = c("",
-                                          paste0(round(mean(get.w(m_w_ols)), 2), " (",
-                                                 round(min(get.w(m_w_ols)), 2), ", ",
-                                                 round(max(get.w(m_w_ols)), 2), ")"),
-                                          paste0(round(mean(get.w(m_w_cbps)), 2), " (",
-                                                 round(min(get.w(m_w_cbps)), 2), ", ",
-                                                 round(max(get.w(m_w_cbps)), 2), ")"),
-                                          paste0(round(mean(get.w(m_w_npcbps)), 2), " (",
-                                                 round(min(get.w(m_w_npcbps)), 2), ", ",
-                                                 round(max(get.w(m_w_npcbps)), 2), ")"),
-                                          paste0(round(mean(unlist(m_w_olr)), 2), " (",
-                                                 round(min(unlist(m_w_olr)), 2), ", ",
-                                                 round(max(unlist(m_w_olr)), 2), ")")))
+                                          paste0(round(mean(mean_wts(m_w_ols)), 2), " (",
+                                                 round(min(mean_wts(m_w_ols)), 2), ", ",
+                                                 round(max(mean_wts(m_w_ols)), 2), ")"),
+                                          paste0(round(mean(mean_wts(m_w_cbps)), 2), " (",
+                                                 round(min(mean_wts(m_w_cbps)), 2), ", ",
+                                                 round(max(mean_wts(m_w_cbps)), 2), ")"),
+                                          paste0(round(mean(mean_wts(m_w_npcbps)), 2), " (",
+                                                 round(min(mean_wts(m_w_npcbps)), 2), ", ",
+                                                 round(max(mean_wts(m_w_npcbps)), 2), ")"),
+                                          paste0(round(mean(map_dbl(m_w_olr, ~mean(.x))), 2), " (",
+                                                 round(min(map_dbl(m_w_olr, ~mean(.x))), 2), ", ",
+                                                 round(max(map_dbl(m_w_olr, ~mean(.x))), 2), ")")))
 
 # make into grob
 male_tab <- tableGrob(bal_male, theme = tt_theme, rows = NULL)

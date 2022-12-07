@@ -1,13 +1,14 @@
-# This code runs the example in Supplement 1: Formulas and Example Code — Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study
+# This code runs the example in Supplement 1: Formulas and Example R Code — Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study
 # Authors: Sack, Daniel E, Shepherd, Bryan E, Audet, Carolyn M, De Schacht, Caroline, Samuels, Lauren R
 
-# For each sIPW method, we have provided some example R code with citations for the appropriate package. In each example scenario, Y is the binary outcome, X is the exposure, C1, C2, C3 and are the confounders, and data is the dataframe containing the data. We show example code in WeightIt (version 0.12.0)1 for OLS, CBGPS, and npCGBPS and our own code (available at https://github.com/dannysack/gen_prop_wts/blob/main/orm.wt.R) for QB and CPM. We show both how to generate the weights and then use them with survey (version 4.1-1) to generate an effect estimate for X.
+# Below, for each sIPW method, we provide some example R code with citations for the appropriate package. In each example scenario, Y is the binary outcome, X is the exposure, C1, C2, C3 and are the confounders, and data is the dataframe containing the data. We show example code using WeightIt (version 0.12.0)1 for OLS, CBGPS, and npCGBPS and our own code (available at https://github.com/dannysack/gen_prop_wts/blob/main/orm.wt.R) for QB and CPM. We show both how to generate the weights and then use them with survey (version 4.1-1) to generate an effect estimate for X. This script is available at https://github.com/dannysack/gen_prop_wts/blob/main/sup1.R with different formatting.
 
 # load required libraries
 library(Hmisc)
 library(rms)
 library(WeightIt)
 library(survey)
+# avaialble at https://github.com/dannysack/gen_prop_wts/blob/main/orm.wt.R
 source("/Users/sackd/Library/CloudStorage/Box-Box/Vanderbilt University/PhD/Publications/Continuous Propensity Scores/Code/orm.wt.R")
 
 # We generate the data from the simulation data for one outcome
@@ -90,7 +91,7 @@ data$qb10_wts <- num_qb / denom_qb
 # add column of weights to dataframe using our code available at https://github.com/dannysack/gen_prop_wts/blob/main/orm.wt.R
 data$qb10_wts1 <- orm.wt(object = data, exposure = "x10", cov_form = "~ mage + page + parity2 + parity3 + parity4 + parity5") %>% unlist()
 
-# compare weights
+# compare weights (should be 1500)
 sum(data$qb10_wts == data$qb10_wts1)
 
 ## Cumulative Probability Model R Code:
@@ -119,7 +120,7 @@ data$cpm_wts <- num_cpm / denom_cpm
 # add column of weights to dataframe using our code available at https://github.com/dannysack/gen_prop_wts/blob/main/orm.wt.R
 data$cpm_wts1 <- orm.wt(object = data, exposure = "x1", cov_form = '~ mage + page + parity2 + parity3 + parity4 + parity5') %>% unlist()
 
-# compare weights
+# compare weights (should be 1500)
 sum(data$cpm_wts == data$cpm_wts1)
 
 ## Create survey design and run model with desired weights:
