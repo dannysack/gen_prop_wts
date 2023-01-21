@@ -1,5 +1,5 @@
 # gen_prop_wts
-This repository contains the code to generate and analyze the data presented in "Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study", currently in preperation.
+This repository contains the code to generate and analyze the data presented in "Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study", currently in press with the American Journal of Epidemiology.
 
 File Directory:
 

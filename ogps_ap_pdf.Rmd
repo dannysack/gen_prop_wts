@@ -1,5 +1,5 @@
 ---
-title: "Supplement 3: Case Study — Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study"
+title: "Web Appendix 3: Case Study — Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study"
 author: "Sack, Daniel E, Shepherd, Bryan E, Audet, Carolyn M, De Schact, Caroline, Samuels, Lauren R"
 date: "<small>Updated `r Sys.Date()` for American Journal of Epidemiology</small>"
 output:
@@ -87,7 +87,7 @@ data <- quant %>%
 
 Given that the intervention consisted of six couples counseling and skills sessions focused on building communication skills, nine peer support sessions (with peer couples) focused on navigating pregnancy and the postpartum period, and joint couples antenatal and postnatal HIV care, we were interested whether intervention adherence (among female and male participants separately) impacted a secondary outcome (postpartum contraceptive uptake) among female participants in the intervention arm [@audet2018].
 
-## Supplemental Figure 3.1 - Enrollment Flow Chart
+## Web Figure 7 - Enrollment Flow Chart
 
 ```{r fig1, fig.width=8, fig.height=8}
 # create study flow chart
@@ -159,7 +159,7 @@ flow
 
 \*\*Delivery less than 1 year before Nov. 30, 2021
 
-# Supplemental Figure 3.2 - Directed Acyclic Graph
+# Web Figure 8 - Directed Acyclic Graph
 
 To calculate each type of sIPW, we adjusted for the available minimally sufficient set of available confounding variables. These included: participant depression (continuous, measured via the Patient Health Questionaire-9)[@kroenke2001], female and male education (no education, some primary, completed primary, some secondary, completed secondary, college/higher education), participant WHO clinical stage (ordinal), participant social support (continuous, measured via adapted Berlin Social Support Scales)[@schulz2003], partner HoPS+ engagement (continuous), participant age (continuous), and participant enrollment date (continuous). As this is merely a proof-of-concept analysis, we recognize that we are likely missing other potentially important confounders such as participant fertility intentions (which is part of the minimally sufficient set of theorized covariates), which were not available at the time of this analysis. The directed acyclic graph is shown below.
 
@@ -221,32 +221,50 @@ Table 1 describes baseline covariates among female and male HoPS+ participants. 
 
 ## Figure 3 - HoPS+ Exposure Distribution
 
-```{r fig2, fig.width=6, fig.height=4, eval = FALSE}
+```{r fig2, fig.width=4, fig.height=3, eval = FALSE}
 # code to generate figure 4
 
 fem_exp <- ggplot(data, aes(x = exp.female)) +
   geom_histogram(aes(y = ..count..),binwidth = 1, alpha = 0.5, color = "grey50") +
   # geom_density(adjust = 2) +
-  ylab("Participants") +
-  ylim(0, 90) +
-  xlab("Female Session Attendance") +
-  theme
+  scale_y_continuous(name = "Participants", breaks = c(0, 25, 50, 75)) +
+  scale_x_continuous(name = "Female Session Attendance", limits = c(-1.25, 15)) +
+  coord_cartesian(clip = "off", xlim = c(0, 15), ylim = c(0, 90)) +
+  annotate(geom = "text", x = -1.25, y = 99, label = "A)", size = 10 / .pt) +
+  theme +
+  theme(text = element_text(size = 10),
+        plot.margin = unit(c(15, 6, 6, 6), "pt"))
 
 m_exp <- ggplot(data, aes(x = exp.male)) +
   geom_histogram(aes(y = ..count..), binwidth = 1, alpha = 0.5, color = "grey50") +
   # geom_density(adjust = 2) +
-  ylab("") +
-  ylim(0, 90) +
-  xlab("Male Session Attendance") +
-  theme
+  scale_y_continuous(name = "Participants", breaks = c(0, 25, 50, 75)) +
+  scale_x_continuous(name = "Male Session Attendance", limits = c(-1.25, 15)) +
+  coord_cartesian(clip = "off", xlim = c(0, 15), ylim = c(0, 90)) +
+  annotate(geom = "text", x = -1.25, y = 99, label = "B)", size = 10 / .pt) +
+  theme +
+  theme(text = element_text(size = 10),
+        plot.margin = unit(c(15, 6, 6, 6), "pt"))
 
-ggarrange(fem_exp, m_exp,
-          labels = c("A)", "B)"))
+ggarrange(fem_exp, m_exp)
 
 # save plot
-ggsave("figs/fig3.pdf", width = 6, height = 4)
+ggsave("fin_figs/fig3.pdf", width = 5, height = 3)
 # embed the font
-embed_fonts("figs/fig3.pdf")
+embed_fonts("fin_figs/fig3.pdf")
+```
+## Figure 3 Panels
+
+```{r fig3_panels, eval = FALSE}
+# Panel A
+fem_exp
+ggsave("fin_figs/fig3a.pdf", width = 2.5, height = 3)
+embed_fonts("fin_figs/fig3a.pdf")
+
+# Panel A
+m_exp
+ggsave("fin_figs/fig3b.pdf", width = 2.5, height = 3)
+embed_fonts("fin_figs/fig3b.pdf")
 ```
 
 # Imputations
@@ -285,7 +303,7 @@ stripplot(imp)
 bwplot(imp)
 ```
 
-# Supplemental Figure 3.3 - Covariate Balance
+# Web Figure 9 - Covariate Balance
 
 ```{r covbal1}
 # pull in imputations

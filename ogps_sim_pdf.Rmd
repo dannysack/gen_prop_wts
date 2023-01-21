@@ -1,5 +1,5 @@
 ---
-title: "Supplement 2: Simulations — Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study"
+title: "Web Appendix 2: Simulations — Inverse Probability Weights for Quasi-Continuous Ordinal Exposures with a Binary Outcome: Method Comparison and Case Study"
 author: "Sack, Daniel E, Shepherd, Bryan E, Audet, Carolyn M, De Schact, Caroline, Samuels, Lauren R"
 date: "<small>Updated `r Sys.Date()` for American Journal of Epidemiology</small>"
 output:
@@ -687,7 +687,7 @@ true2_x6_qs <- map_dbl(seq(0.1, 0.9, 0.1), ~ getMeanProb(dat = df_msm_sim,
                                                          val = quantile(df_msm_sim$x6, .x), xnum = 6))
 ```
 
-### Supplemental Table 2.1 - Updated Exposure Levels
+### Web Table 1 - Updated Exposure Levels
 
 ```{r exp_levels}
 # get number of exposure levels across simulations
@@ -707,7 +707,7 @@ kable(suptab2) %>%
   kable_classic(html_font = "Arial", full_width = FALSE)
 ```
 
-### Supplemental Table 2.2 - Dose Response Deciles
+### Web Table 2 - Dose Response Deciles
 
 ```{r deciles}
 # create deciles quantiles for each Austin approach
@@ -737,7 +737,7 @@ kable(dec_tab) %>%
 
 # Recreating Distributions from Naimi et al.
 
-## Supplemental Table 2.3 - Simulation Descriptive Statistics
+## Web Table 3 - Simulation Descriptive Statistics
 
 ```{r tab1}
 # recreate table 1
@@ -820,7 +820,7 @@ kable(tab1, digits = 2) %>%
   add_indent(c(5:8))
 ```
 
-## Supplemental Figure 2.1 - Continuous Exposure
+## Web Figure 1 - Continuous Exposure
 
 ```{r fig2_cont, fig.width=8, fig.height=4, cache.lazy=FALSE}
 # now create plot
@@ -848,7 +848,7 @@ ggarrange(naimix1, naimix2,
 
 Panel A) Homoscedastic Continuous Exposure, Panel B) Heteroscedastic Continuous Exposure
 
-## Supplemental Figure 2.2 - Continuous Exposure
+## Web Figure 2 - Continuous Exposure
 
 ```{r fig3_cont, fig.width=10, fig.height=4}
 # will run ols regression on df
@@ -897,7 +897,7 @@ ggarrange(x1_plot_n, x2_plot_n, x2_plot_n_log,
 
 # Updated Distributions
 
-## Supplemental Figure 2.3 - Maternal Age Distributions
+## Web Figure 3 - Maternal Age Distributions
 
 ```{r fig1_ma, fig.width=6, fig.height=3, cache.lazy=FALSE}
 mage_hist <- df %>%
@@ -927,7 +927,7 @@ ggarrange(mage_hist, mage_g_hist,
 
 Supplemental Figure 3 shows the updated marginal distributions of maternal age (`mage`) and skewed maternal age (`mage_g`). Despite similar means and variances in `mage` and `mage_g`, `mage` is normally distributed whereas `mage_g` is significantly left-skewed.
 
-## Supplemental Figure 2.4 - Exposure-Covariate Correlations
+## Web Figure 4 - Exposure-Covariate Correlations
 
 ```{r fig1, fig.width=9, fig.height=3, cache.lazy=FALSE}
 supfig2_4_func <- function(exp, mage) {
@@ -977,7 +977,8 @@ dens_x2 <- ggplot(df, aes(x = x2)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
   geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[2]))) +
+  scale_x_continuous(name = expression(paste(X[2])), limits = c(10, 35),
+                     breaks = c(10, 15, 20, 25, 30, 35)) +
   # labs(caption = paste0("Skew (", round(moments::skewness(df$x2), 3), 
   #       "), Kurtosis (", round(moments::kurtosis(df$x2), 3), ")")) +
   theme + 
@@ -987,7 +988,8 @@ dens_x3 <- ggplot(df, aes(x = x3)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
   geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[3]))) +
+  scale_x_continuous(name = expression(paste(X[3])), limits = c(-0.1, 20),
+                     breaks = c(0, 5, 10 ,20)) +
   # labs(caption = "  ") +
   theme + 
   theme(text = element_text(size = 8.5))
@@ -1006,7 +1008,8 @@ dens_x5 <- ggplot(df, aes(x = x5)) +
   geom_histogram(aes(y = ..density..), binwidth = 1, alpha = 0.5, color = "grey50") +
   #geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[5]))) +
+  scale_x_continuous(name = expression(paste(X[5])), limits = c(10, 35),
+                     breaks = c(10, 15, 20, 25, 30, 35)) +
   # labs(caption = paste0("Skew (", round(moments::skewness(df$x5), 3), 
   #       "), Kurtosis (", round(moments::kurtosis(df$x5), 3), ")")) +
   theme + 
@@ -1016,7 +1019,8 @@ dens_x6 <- ggplot(df, aes(x = x6)) +
   geom_histogram(aes(y = ..density..), binwidth = 1, alpha = 0.5, color = "grey50") +
   #geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[6]))) +
+  scale_x_continuous(name = expression(paste(X[6])), limits = c(-1, 20),
+                     breaks = c(0, 5, 10 ,20)) +
   # labs(caption = "  ") +
   theme + 
   theme(text = element_text(size = 8.5))
@@ -1087,14 +1091,14 @@ x5_plot <- ggplot() +
   ylab("Residual") +
   scale_x_continuous(name = expression(paste("Linear Predictor (", X[5], ")"))) +
   theme +
-  theme(text = element_text(size = 8))
+  theme(text = element_text(size = 8.5))
 
 x6_plot <- ggplot() +
   geom_point(aes(x = preds_x6, y = res_x6), alpha = 0.01) +
   ylab("Residual") +
   scale_x_continuous(name = expression(paste("Linear Predictor (", X[6], ")"))) +
   theme +
-  theme(text = element_text(size = 8))
+  theme(text = element_text(size = 8.5))
 
 # combine
 ggarrange(dens_x1, x1_plot,
@@ -1106,11 +1110,68 @@ ggarrange(dens_x1, x1_plot,
           labels = c("A)", "B)", "C)", "D)", "E)", "F)",
                      "G)", "H)", "I)", "J)", "K)", "L)"), 
           nrow = 6, ncol = 2,
-          font.label = list(size = 10))
+          font.label = list(size = 8.5, face = "plain"))
 # save plot
-ggsave("figs/fig1.tiff", width = 7, height = 7)
+ggsave("fin_figs/fig1.tiff", width = 7, height = 7)
 ```
 
+## Figure 1 Panels
+
+```{r fig1_panels, eval = FALSE}
+# Panel A
+dens_x1
+ggsave("fin_figs/fig1a.pdf", width = 3.5, height = 1.167)
+embed_fonts("fin_figs/fig1a.pdf")
+
+# Panel B
+x1_plot
+ggsave("fin_figs/fig1b.tiff", width = 3.5, height = 1.167)
+
+# Panel C
+dens_x2
+ggsave("fin_figs/fig1c.pdf", width = 3.5, height = 1.167)
+embed_fonts("fin_figs/fig1c.pdf")
+
+# Panel D
+x2_plot
+ggsave("fin_figs/fig1d.tiff", width = 3.5, height = 1.167)
+
+# Panel E
+dens_x3
+ggsave("fin_figs/fig1e.pdf", width = 3.5, height = 1.167)
+embed_fonts("fin_figs/fig1e.pdf")
+
+# Panel F
+x3_plot
+ggsave("fin_figs/fig1f.tiff", width = 3.5, height = 1.167)
+
+# Panel G
+dens_x4
+ggsave("fin_figs/fig1g.pdf", width = 3.5, height = 1.167)
+embed_fonts("fin_figs/fig1g.pdf")
+
+# Panel H
+x4_plot
+ggsave("fin_figs/fig1h.tiff", width = 3.5, height = 1.167)
+
+# Panel I
+dens_x5
+ggsave("fin_figs/fig1i.pdf", width = 3.5, height = 1.167)
+embed_fonts("fin_figs/fig1i.pdf")
+
+# Panel J
+x5_plot
+ggsave("fin_figs/fig1j.tiff", width = 3.5, height = 1.167)
+
+# Panel K
+dens_x6
+ggsave("fin_figs/fig1k.pdf", width = 3.5, height = 1.167)
+embed_fonts("fin_figs/fig1k.pdf")
+
+# Panel L
+x6_plot
+ggsave("fin_figs/fig1l.tiff", width = 3.5, height = 1.167)
+```
 
 # Stabilized Inverse Probability Weight Assessments
 
@@ -2329,7 +2390,7 @@ Save(bias)
 
 ## Dose Reponse Decile Approach
 
-### Supplemental Figure 2.5 - Bias at Deciles
+### Web Figure 5 - Bias at Deciles
 
 ```{r austin_bias_loop, fig.width=20, fig.height=10}
 Load(bias)
@@ -2489,7 +2550,7 @@ ggarrange(aus_plots[[7]], aus_plots[[8]], aus_plots[[9]], ncol = 1)
 
 Figure legend: Column A) Homoscedastic Exposure, Conditionally Normal, Marginally Normal, Column B) Homoscedastic Exposure, Conditionally Normal, Marginally Non-Normal, Column C) Heteroscedastic Exposure, Conditionally Non-Normal, Marginally Non-Normal. The number next to each panel represents the decile, such that "A1" is the 1st decile of the Homoscedastic, Conditionally Normal, Marginally Normal Exposure.
 
-### Supplemental Figure 2.6 - Mean Squared Error at Deciles
+### Web Figure 6 - Mean Squared Error at Deciles
 
 ```{r fig5, fig.width=7, fig.height=6}
 # calculate mse for each scenario
@@ -2606,7 +2667,7 @@ mse_plot %>% filter(Decile != 0) %>%
 
 ### Figure 2 - Marginal Log Odds Ratio Approach Bias
 
-```{r fig2_fin, fig.width=6, fig.height=6, eval = FALSE}
+```{r fig2_fin, fig.width=7, fig.height=5, eval = FALSE}
 # make df of x1:4 biases
 x1_bias <- bias %>%
   select(starts_with("x1") & ends_with("bias")) %>%
@@ -2712,80 +2773,84 @@ mse_bias_plot <- bind_rows(x1_bias, x2_bias, x3_bias, x4_bias, x5_bias, x6_bias)
 fig2_func <- function(exp_num, letter) {
   
   if(exp_num < 4) {
-    mse_bias_plot %>% filter(facet == paste0("x", exp_num)) %>%
+    mse_bias_plot %>% filter(facet == paste0("x", exp_num), bias < 0.25, bias > -0.25) %>%
       ggplot(aes(y = fct_rev(lab), x = bias)) +
       stat_halfeye() +
       geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
       scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "npCBGPS", "CBGPS", "OLS", "UW"),) +
-      scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
-                      breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
-      annotate(geom = "text", x = 0.2, y = 9, label = "MSE", size = 10 / .pt) +
-      annotate(geom = "text", x = 0.2, y = 8.5, label = mlor_mse %>% 
+      scale_x_continuous(name = "Bias",
+                      breaks = seq(-0.2, 0.2, 0.1), labels = c("-0.2", "-0.1", "0.0", "0.1", "0.2")) +
+      annotate(geom = "text", x = -0.3, y = 9.3, label = paste0(letter, ")"), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 9, label = "underline('MSE')", size = 8 / .pt, parse = TRUE) +
+      annotate(geom = "text", x = 0.325, y = 8.5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "UW") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
-      annotate(geom = "text", x = 0.2, y = 7.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 7.5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "OLS") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
-      annotate(geom = "text", x = 0.2, y = 6.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 6.5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "CBGPS") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
-      annotate(geom = "text", x = 0.2, y = 5.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 5.5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "npCBGPS") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
-      annotate(geom = "text", x = 0.2, y = 4.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 4.5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "QB10") %>% 
-                pull(MSE) %>% round(4), size = 9 / .pt) +
-      annotate(geom = "text", x = 0.2, y = 3.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 3.5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "QB15") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
-      annotate(geom = "text", x = 0.2, y = 2.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 2.5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "QB20") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
-      annotate(geom = "text", x = 0.2, y = 1.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 1.5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "OLR") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
-      ggtitle(bquote(.(letter) * ") " ~ X[.(exp_num)])) +
-      coord_cartesian(clip = "off") +
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      ggtitle("") +
+      coord_cartesian(clip = "off", ylim = c(1, 8.5), xlim = c(-0.25, 0.25)) +
       theme +
       theme(panel.grid.major.y = element_line(),
+            title = element_text(size = 8),
+            axis.title = element_text(size = 8),
             axis.text = element_text(size = 8),
-            axis.title = element_text(size = 9),
+            plot.margin = unit(c(3, 22, 3, 3), "pt"),
             legend.position = "none")
   } else {
-    mse_bias_plot %>% filter(facet == paste0("x", exp_num)) %>%
+    mse_bias_plot %>% filter(facet == paste0("x", exp_num), bias < 0.25, bias > -0.25) %>%
       ggplot(aes(y = fct_rev(lab), x = bias)) +
       stat_halfeye() +
       geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
       scale_y_discrete(name = "", labels = c("CPM", "npCBGPS", "CBGPS", "OLS", "UW")) +
-      scale_x_continuous(name = "Bias", limits = c(-0.25, 0.25), 
-                      breaks = seq(-0.2, 0.2, 0.1), labels = seq(-0.2, 0.2, 0.1)) +
-      annotate(geom = "text", x = 0.2, y = 6, label = "MSE", size = 10 / .pt) +
-     annotate(geom = "text", x = 0.2, y = 5.5, label = mlor_mse %>% 
+      scale_x_continuous(name = "Bias",  
+                      breaks = seq(-0.2, 0.2, 0.1), labels = c("-0.2", "-0.1", "0.0", "0.1", "0.2")) +
+      annotate(geom = "text", x = -0.3, y = 6.3, label = paste0(letter, ")"), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 6, label = "underline('MSE')", size = 8 / .pt, parse = TRUE) +
+      annotate(geom = "text", x = 0.325, y = 5.5, label = mlor_mse %>% 
                  filter(Exposure == paste0("x", exp_num) & Method == "UW") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
-      annotate(geom = "text", x = 0.2, y = 4.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 4.5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "OLS") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
-      annotate(geom = "text", x = 0.2, y = 3.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 3.5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "CBGPS") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
-      annotate(geom = "text", x = 0.2, y = 2.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 2.5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "npCBGPS") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
-      annotate(geom = "text", x = 0.2, y = 1.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      annotate(geom = "text", x = 0.325, y = 1.5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "OLR") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 9 / .pt) +
-      ggtitle(bquote(.(letter) * ") " ~ X[.(exp_num)])) +
-      coord_cartesian(clip = "off") +
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+      coord_cartesian(clip = "off", ylim = c(1, 5.5), xlim = c(-0.25, 0.25)) +
       theme +
       theme(panel.grid.major.y = element_line(),
+            axis.title = element_text(size = 8),
             axis.text = element_text(size = 8),
-            axis.title = element_text(size = 9),
+            plot.margin = unit(c(3, 22, 3, 3), "pt"),
             legend.position = "none")
   }
 }
 
-ggarrange(fig2_func(1, "A"),
+fig2_fin <- ggarrange(fig2_func(1, "A"),
           fig2_func(2, "B"),
           fig2_func(3, "C"),
           fig2_func(4, "D"),
@@ -2796,10 +2861,46 @@ ggarrange(fig2_func(1, "A"),
           heights = c(8, 5),
           align= "hv")
 
+annotate_figure(fig2_fin,
+                left = text_grob("Stabilized Inverse Probability Weighting Approach", rot = 90, size = 9))
+
 # save plot
-ggsave("figs/fig2.pdf", width = 7, height = 7)
+ggsave("fin_figs/fig2.pdf", width = 7, height = 7)
 # embed the font
-embed_fonts("figs/fig2.pdf")
+embed_fonts("fin_figs/fig2.pdf")
+```
+## Figure 2 Panels
+
+```{r fig2_panels, eval = FALSE}
+# Panel A
+fig2_func(1, "A")
+ggsave("fin_figs/fig2a.pdf", width = 2.33, height = 4.67)
+embed_fonts("fin_figs/fig2a.pdf")
+
+# Panel B
+fig2_func(2, "B")
+ggsave("fin_figs/fig2b.pdf", width = 2.33, height = 4.67)
+embed_fonts("fin_figs/fig2b.pdf")
+
+# Panel C
+fig2_func(3, "C")
+ggsave("fin_figs/fig2c.pdf", width = 2.33, height = 4.67)
+embed_fonts("fin_figs/fig2c.pdf")
+
+# Panel D
+fig2_func(4, "D")
+ggsave("fin_figs/fig2d.pdf", width = 2.33, height = 2.92)
+embed_fonts("fin_figs/fig2d.pdf")
+
+# Panel E
+fig2_func(5, "E")
+ggsave("fin_figs/fig2e.pdf", width = 2.33, height = 2.92)
+embed_fonts("fin_figs/fig2e.pdf")
+
+# Panel F
+fig2_func(6, "F")
+ggsave("fin_figs/fig2f.pdf", width = 2.33, height = 2.92)
+embed_fonts("fin_figs/fig2f.pdf")
 ```
 
 ### Mean Squared Error
@@ -2978,7 +3079,7 @@ kable(tab3, digits = 3) %>%
   add_indent(c(2:3, 5:6, 8:9, 11:12, 13:22, 24:25))
 ```
 
-### Supplemental Table 2.5 - Marginal Log Odds Ratio Approach Bias
+### Web Table 4 - Marginal Log Odds Ratio Approach Bias
 
 ```{r tab4}
 # now make table of biases
