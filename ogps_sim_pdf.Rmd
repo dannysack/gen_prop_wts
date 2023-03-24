@@ -967,9 +967,12 @@ dens_x1 <- ggplot(df, aes(x = x1)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
   geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[1]))) +
-  # labs(caption = paste0("Skew (", round(moments::skewness(df$x1), 3), 
-  #       "), Kurtosis (", round(moments::kurtosis(df$x1), 3), ")")) +
+  scale_x_continuous(name = expression(paste(italic(X[1]))), 
+                     breaks = c(5, 10, 15, 20, 25), 
+                     labels = c("5", "10", "15", "20", "25")) +
+  scale_y_continuous(breaks = c(0, 0.1, 0.2, 0.3), labels = c("0", "0.1", "0.2", "0.3")) +
+  coord_cartesian(ylim = c(0, 0.3), xlim = c(5, 25)) +
+  ggtitle("A)") +
   theme + 
   theme(text = element_text(size = 8.5))
 
@@ -977,10 +980,11 @@ dens_x2 <- ggplot(df, aes(x = x2)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
   geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[2])), limits = c(10, 35),
+  scale_x_continuous(name = expression(paste(italic(X[2]))), limits = c(10, 35),
                      breaks = c(10, 15, 20, 25, 30, 35)) +
-  # labs(caption = paste0("Skew (", round(moments::skewness(df$x2), 3), 
-  #       "), Kurtosis (", round(moments::kurtosis(df$x2), 3), ")")) +
+  scale_y_continuous(breaks = c(0, 0.1, 0.2, 0.3), labels = c("0", "0.1", "0.2", "0.3")) +
+  coord_cartesian(ylim = c(0, 0.3)) +
+  ggtitle("C)") +
   theme + 
   theme(text = element_text(size = 8.5))
 
@@ -988,9 +992,11 @@ dens_x3 <- ggplot(df, aes(x = x3)) +
   geom_histogram(aes(y = ..density..), binwidth = 0.1, alpha = 0.5, color = "grey50") +
   geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[3])), limits = c(-0.1, 20),
+  scale_x_continuous(name = expression(paste(italic(X[3]))), limits = c(-0.1, 20),
                      breaks = c(0, 5, 10 ,20)) +
-  # labs(caption = "  ") +
+  scale_y_continuous(breaks = c(0, 0.1, 0.2, 0.3), labels = c("0", "0.1", "0.2", "0.3")) +
+  coord_cartesian(ylim = c(0, 0.3)) +
+  ggtitle("E)") +
   theme + 
   theme(text = element_text(size = 8.5))
 
@@ -998,9 +1004,12 @@ dens_x4 <- ggplot(df, aes(x = x4)) +
   geom_histogram(aes(y = ..density..), binwidth = 1, alpha = 0.5, color = "grey50") +
   #geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[4]))) +
-  # labs(caption = paste0("Skew (", round(moments::skewness(df$x4), 3), 
-  #       "), Kurtosis (", round(moments::kurtosis(df$x4), 3), ")")) +
+  scale_x_continuous(name = expression(paste(italic(X[4]))), 
+                     breaks = c(5, 10, 15, 20, 25), 
+                     labels = c("5", "10", "15", "20", "25")) +
+  scale_y_continuous(breaks = c(0, 0.1, 0.2, 0.3), labels = c("0", "0.1", "0.2", "0.3")) +
+  coord_cartesian(ylim = c(0, 0.3), xlim = c(5, 25)) +
+  ggtitle("G)") +
   theme + 
   theme(text = element_text(size = 8.5))
 
@@ -1008,10 +1017,11 @@ dens_x5 <- ggplot(df, aes(x = x5)) +
   geom_histogram(aes(y = ..density..), binwidth = 1, alpha = 0.5, color = "grey50") +
   #geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[5])), limits = c(10, 35),
+  scale_x_continuous(name = expression(paste(italic(X[5]))), limits = c(10, 35),
                      breaks = c(10, 15, 20, 25, 30, 35)) +
-  # labs(caption = paste0("Skew (", round(moments::skewness(df$x5), 3), 
-  #       "), Kurtosis (", round(moments::kurtosis(df$x5), 3), ")")) +
+  scale_y_continuous(breaks = c(0, 0.1, 0.2, 0.3), labels = c("0", "0.1", "0.2", "0.3")) +
+  coord_cartesian(ylim = c(0, 0.3)) +
+  ggtitle("I)") +
   theme + 
   theme(text = element_text(size = 8.5))
 
@@ -1019,9 +1029,11 @@ dens_x6 <- ggplot(df, aes(x = x6)) +
   geom_histogram(aes(y = ..density..), binwidth = 1, alpha = 0.5, color = "grey50") +
   #geom_density(adjust = 2) +
   ylab("Density") +
-  scale_x_continuous(name = expression(paste(X[6])), limits = c(-1, 20),
+  scale_x_continuous(name = expression(paste(italic(X[6]))), limits = c(-1, 20),
                      breaks = c(0, 5, 10 ,20)) +
-  # labs(caption = "  ") +
+  scale_y_continuous(breaks = c(0, 0.1, 0.2, 0.3), labels = c("0", "0.1", "0.2", "0.3")) +
+  coord_cartesian(ylim = c(0, 0.3)) +
+  ggtitle("K)") +
   theme + 
   theme(text = element_text(size = 8.5))
 
@@ -1061,58 +1073,84 @@ res_x6 <- residuals(ols_x6)
 x1_plot <- ggplot() +
   geom_point(aes(x = preds_x1, y = res_x1), alpha = 0.01) +
   ylab("Residual") +
-  scale_x_continuous(name = expression(paste("Linear Predictor (", X[1], ")"))) +
+  scale_x_continuous(name = expression(paste("Linear Predictor for ", italic(X[1])))) +
+  scale_y_continuous(breaks = c(-8, -4, 0, 4, 8), labels = c("–8", "–4", "0", "4", "8")) +
+  coord_cartesian(ylim = c(-8, 8)) +
+  ggtitle("B)") +
   theme + 
   theme(text = element_text(size = 8.5))
 
 x2_plot <- ggplot() +
   geom_point(aes(x = preds_x2, y = res_x2), alpha = 0.01) +
   ylab("Residual") +
-  scale_x_continuous(name = expression(paste("Linear Predictor (", X[2], ")"))) +
+  scale_x_continuous(name = expression(paste("Linear Predictor for ", italic(X[2]))),
+                     breaks = c(16, 18, 20, 22, 24, 26),
+                     labels = c("16", "18", "20", "22", "24", "26")) +
+  ggtitle("D)") +
+  coord_cartesian(xlim = c(16, 26)) +
   theme + 
   theme(text = element_text(size = 8.5))
 
 x3_plot <- ggplot() +
   geom_point(aes(x = preds_x3, y = res_x3), alpha = 0.01) +
   ylab("Residual") +
-  scale_x_continuous(name = expression(paste("Linear Predictor (", X[3], ")"))) +
+  scale_x_continuous(name = expression(paste("Linear Predictor for ", italic(X[3]))),
+                     breaks = c(0, 1, 2, 3, 4),
+                     labels = c("0", "1", "2", "3", "4")) +
+  scale_y_continuous(breaks = c(-5, 0, 5, 10), labels = c("–5", "0", "5", "10")) +
+  coord_cartesian(ylim = c(-5, 10), xlim = c(0, 4)) +
+  ggtitle("F)") +
   theme + 
   theme(text = element_text(size = 8.5))
 
 x4_plot <- ggplot() +
   geom_point(aes(x = preds_x4, y = res_x4), alpha = 0.01) +
   ylab("Residual") +
-  scale_x_continuous(name = expression(paste("Linear Predictor (", X[4], ")"))) +
+  scale_x_continuous(name = expression(paste("Linear Predictor for ", italic(X[4])))) +
+  scale_y_continuous(breaks = c(-8, -4, 0, 4, 8), labels = c("–8", "–4", "0", "4", "8")) +
+  coord_cartesian(ylim = c(-8, 8)) +
+  ggtitle("H)") +
   theme +
-  theme(text = element_text(size = 8))
+  theme(text = element_text(size = 8.5))
 
 x5_plot <- ggplot() +
   geom_point(aes(x = preds_x5, y = res_x5), alpha = 0.01) +
   ylab("Residual") +
-  scale_x_continuous(name = expression(paste("Linear Predictor (", X[5], ")"))) +
+  scale_x_continuous(name = expression(paste("Linear Predictor for ", italic(X[5]))),
+                     breaks = c(16, 18, 20, 22, 24, 26),
+                     labels = c("16", "18", "20", "22", "24", "26")) +
+  scale_y_continuous(breaks = c(-8, -4, 0, 4, 8), labels = c("–8", "–4", "0", "4", "8")) +
+  coord_cartesian(ylim = c(-8, 8), xlim = c(16, 26)) +
+  ggtitle("J)") +
   theme +
   theme(text = element_text(size = 8.5))
 
 x6_plot <- ggplot() +
   geom_point(aes(x = preds_x6, y = res_x6), alpha = 0.01) +
   ylab("Residual") +
-  scale_x_continuous(name = expression(paste("Linear Predictor (", X[6], ")"))) +
+  scale_x_continuous(name = expression(paste("Linear Predictor for ", italic(X[6]))),
+                     breaks = c(0, 1, 2, 3, 4),
+                     labels = c("0", "1", "2", "3", "4")) +
+  scale_y_continuous(breaks = c(-5, 0, 5, 10), labels = c("–5", "0", "5", "10")) +
+  coord_cartesian(ylim = c(-5, 10), xlim = c(0, 4)) +
+  ggtitle("L)") +
   theme +
   theme(text = element_text(size = 8.5))
 
+quartz(type = "tiff", file = "fin_figs2/fig1.tiff", height = 7, width = 7, dpi = 300)
 # combine
 ggarrange(dens_x1, x1_plot,
           dens_x2, x2_plot,
           dens_x3, x3_plot,
           dens_x4, x4_plot,
           dens_x5, x5_plot,
-          dens_x6, x6_plot,
-          labels = c("A)", "B)", "C)", "D)", "E)", "F)",
-                     "G)", "H)", "I)", "J)", "K)", "L)"), 
-          nrow = 6, ncol = 2,
-          font.label = list(size = 8.5, face = "plain"))
+          dens_x6, x6_plot, 
+          nrow = 6, ncol = 2)
+dev.off()
 # save plot
-ggsave("fin_figs/fig1.tiff", width = 7, height = 7)
+#ggsave("fin_figs/fig1.tiff", width = 7, height = 7)
+# embed the font
+embed_fonts("fin_figs2/fig1.pdf")
 ```
 
 ## Figure 1 Panels
@@ -2667,7 +2705,7 @@ mse_plot %>% filter(Decile != 0) %>%
 
 ### Figure 2 - Marginal Log Odds Ratio Approach Bias
 
-```{r fig2_fin, fig.width=7, fig.height=5, eval = FALSE}
+```{r fig2_fin, fig.width=5, fig.height=8, eval = FALSE}
 # make df of x1:4 biases
 x1_bias <- bias %>%
   select(starts_with("x1") & ends_with("bias")) %>%
@@ -2777,97 +2815,95 @@ fig2_func <- function(exp_num, letter) {
       ggplot(aes(y = fct_rev(lab), x = bias)) +
       stat_halfeye() +
       geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
-      scale_y_discrete(name = "", labels = c("CPM", "QB20", "QB15", "QB10", "npCBGPS", "CBGPS", "OLS", "UW"),) +
+      scale_y_discrete(name = "sIPW", labels = c("CPM", "QB20", "QB15", "QB10", "npCBGPS", "CBGPS", "OLS", "UW"),) +
       scale_x_continuous(name = "Bias",
-                      breaks = seq(-0.2, 0.2, 0.1), labels = c("-0.2", "-0.1", "0.0", "0.1", "0.2")) +
-      annotate(geom = "text", x = -0.3, y = 9.3, label = paste0(letter, ")"), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 9, label = "underline('MSE')", size = 8 / .pt, parse = TRUE) +
-      annotate(geom = "text", x = 0.325, y = 8.5, label = mlor_mse %>% 
+                      breaks = seq(-0.2, 0.2, 0.2), labels = c("-0.2", "0.0", "0.2")) +
+      annotate(geom = "text", x = -0.3, y = 9.3, label = paste0(letter, ")"), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 9.75, label = "underline('MSE')", size = 11 / .pt, parse = TRUE) +
+      annotate(geom = "text", x = 0.355, y = 8, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "UW") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 7.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 7, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "OLS") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 6.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 6, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "CBGPS") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 5.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 5, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "npCBGPS") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 4.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 4, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "QB10") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 3.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 3, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "QB15") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 2.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 2, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "QB20") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 1.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 1, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "OLR") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
       ggtitle("") +
       coord_cartesian(clip = "off", ylim = c(1, 8.5), xlim = c(-0.25, 0.25)) +
       theme +
       theme(panel.grid.major.y = element_line(),
-            title = element_text(size = 8),
-            axis.title = element_text(size = 8),
-            axis.text = element_text(size = 8),
-            plot.margin = unit(c(3, 22, 3, 3), "pt"),
+            title = element_text(size = 11),
+            axis.title = element_text(size = 11),
+            axis.text = element_text(size = 11),
+            plot.margin = unit(c(3, 40, 3, 3), "pt"),
             legend.position = "none")
   } else {
     mse_bias_plot %>% filter(facet == paste0("x", exp_num), bias < 0.25, bias > -0.25) %>%
       ggplot(aes(y = fct_rev(lab), x = bias)) +
       stat_halfeye() +
       geom_vline(xintercept = 0, alpha = 0.5, linetype = "dashed") +
-      scale_y_discrete(name = "", labels = c("CPM", "npCBGPS", "CBGPS", "OLS", "UW")) +
+      scale_y_discrete(name = "sIPW", labels = c("CPM", "npCBGPS", "CBGPS", "OLS", "UW")) +
       scale_x_continuous(name = "Bias",  
-                      breaks = seq(-0.2, 0.2, 0.1), labels = c("-0.2", "-0.1", "0.0", "0.1", "0.2")) +
-      annotate(geom = "text", x = -0.3, y = 6.3, label = paste0(letter, ")"), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 6, label = "underline('MSE')", size = 8 / .pt, parse = TRUE) +
-      annotate(geom = "text", x = 0.325, y = 5.5, label = mlor_mse %>% 
+                      breaks = seq(-0.2, 0.2, 0.2), labels = c("-0.2", "0.0", "0.2")) +
+      annotate(geom = "text", x = -0.3, y = 6.3, label = paste0(letter, ")"), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 5.75, label = "underline('MSE')", size = 11 / .pt, parse = TRUE) +
+      annotate(geom = "text", x = 0.355, y = 5, label = mlor_mse %>% 
                  filter(Exposure == paste0("x", exp_num) & Method == "UW") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 4.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 4, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "OLS") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 3.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 3, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "CBGPS") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 2.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 2, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "npCBGPS") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
-      annotate(geom = "text", x = 0.325, y = 1.5, label = mlor_mse %>% 
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
+      annotate(geom = "text", x = 0.355, y = 1, label = mlor_mse %>% 
                 filter(Exposure == paste0("x", exp_num) & Method == "OLR") %>% 
-                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 8 / .pt) +
+                pull(MSE) %>% round(4) %>% format(nsmall = 4), size = 11 / .pt) +
       coord_cartesian(clip = "off", ylim = c(1, 5.5), xlim = c(-0.25, 0.25)) +
       theme +
       theme(panel.grid.major.y = element_line(),
-            axis.title = element_text(size = 8),
-            axis.text = element_text(size = 8),
-            plot.margin = unit(c(3, 22, 3, 3), "pt"),
+            axis.title = element_text(size = 11),
+            axis.text = element_text(size = 11),
+            plot.margin = unit(c(3, 40, 3, 3), "pt"),
             legend.position = "none")
   }
 }
 
 fig2_fin <- ggarrange(fig2_func(1, "A"),
-          fig2_func(2, "B"),
-          fig2_func(3, "C"),
-          fig2_func(4, "D"),
-          fig2_func(5, "E"),
+          fig2_func(4, "B"),
+          fig2_func(2, "C"),
+          fig2_func(5, "D"),
+          fig2_func(3, "E"),
           fig2_func(6, "F"),
-          ncol = 3,
-          nrow = 2,
-          heights = c(8, 5),
+          ncol = 2,
+          nrow = 3,
           align= "hv")
-
-annotate_figure(fig2_fin,
-                left = text_grob("Stabilized Inverse Probability Weighting Approach", rot = 90, size = 9))
-
+quartz(type = "pdf", file = "fin_figs2/fig2.pdf", height = 7, width = 7)
+annotate_figure(fig2_fin)
+dev.off()
 # save plot
-ggsave("fin_figs/fig2.pdf", width = 7, height = 7)
+#ggsave("fin_figs/fig2.pdf", width = 7, height = 7)
 # embed the font
-embed_fonts("fin_figs/fig2.pdf")
+embed_fonts("fin_figs2/fig2.pdf")
 ```
 ## Figure 2 Panels
 

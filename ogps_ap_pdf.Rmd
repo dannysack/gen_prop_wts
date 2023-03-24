@@ -227,8 +227,8 @@ Table 1 describes baseline covariates among female and male HoPS+ participants. 
 fem_exp <- ggplot(data, aes(x = exp.female)) +
   geom_histogram(aes(y = ..count..),binwidth = 1, alpha = 0.5, color = "grey50") +
   # geom_density(adjust = 2) +
-  scale_y_continuous(name = "Participants", breaks = c(0, 25, 50, 75)) +
-  scale_x_continuous(name = "Female Session Attendance", limits = c(-1.25, 15)) +
+  scale_y_continuous(name = "Female Participants", breaks = c(0, 25, 50, 75)) +
+  scale_x_continuous(name = "No. of Sessions Attended", limits = c(-1.25, 15)) +
   coord_cartesian(clip = "off", xlim = c(0, 15), ylim = c(0, 90)) +
   annotate(geom = "text", x = -1.25, y = 99, label = "A)", size = 10 / .pt) +
   theme +
@@ -238,20 +238,20 @@ fem_exp <- ggplot(data, aes(x = exp.female)) +
 m_exp <- ggplot(data, aes(x = exp.male)) +
   geom_histogram(aes(y = ..count..), binwidth = 1, alpha = 0.5, color = "grey50") +
   # geom_density(adjust = 2) +
-  scale_y_continuous(name = "Participants", breaks = c(0, 25, 50, 75)) +
-  scale_x_continuous(name = "Male Session Attendance", limits = c(-1.25, 15)) +
+  scale_y_continuous(name = "Male Participants", breaks = c(0, 25, 50, 75)) +
+  scale_x_continuous(name = "No. of Sessions Attended", limits = c(-1.25, 15)) +
   coord_cartesian(clip = "off", xlim = c(0, 15), ylim = c(0, 90)) +
   annotate(geom = "text", x = -1.25, y = 99, label = "B)", size = 10 / .pt) +
   theme +
   theme(text = element_text(size = 10),
         plot.margin = unit(c(15, 6, 6, 6), "pt"))
-
+quartz(type = "pdf", file = "fin_figs2/fig3.pdf", height = 3, width = 5)
 ggarrange(fem_exp, m_exp)
-
+dev.off()
 # save plot
-ggsave("fin_figs/fig3.pdf", width = 5, height = 3)
+# ggsave("fin_figs2/fig3.pdf", width = 5, height = 3)
 # embed the font
-embed_fonts("fin_figs/fig3.pdf")
+embed_fonts("fin_figs2/fig3.pdf")
 ```
 ## Figure 3 Panels
 
